@@ -1,0 +1,39 @@
+# School ID Crosswalk
+
+When relating educational data from different sources, you often don't have a common identifier.
+This makes connecting data difficult.
+
+## Scope
+
+This project aims to use several methods to match location information and multiple identification systems.
+
+### Higher Education
+
+- [ ] [IPEDS](https://nces.ed.gov/ipeds/)
+- [ ] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
+- [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
+
+### K-12 Education
+
+- [ ] [CEEB](https://satsuite.collegeboard.org/k12-educators/tools-resources/k12-school-code-search)
+- [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
+- [ ] state-level identification systems
+  - namely Michigan and Ohio at first.
+
+At the K-12 level, I would like to be able to also connect individuals schools to their district in addition to ZIP, county, and state.
+
+## Tools & Software
+
+- [DuckDB](https://duckdb.org)
+  - [FTS Extension](https://duckdb.org/docs/stable/core_extensions/full_text_search) for similarity matching.
+  - [Spatial Extension](https://duckdb.org/docs/stable/core_extensions/spatial/overview) for handling shapefiles from the US Census Bureau.
+- R
+- Python
+- [Make](https://www.gnu.org/software/make/) for automation and ensuring the results are up-to-date with the code.
+
+## Related Projects
+
+- [`UCBoulder/ceeb_nces_crosswalk`](https://github.com/UCBoulder/ceeb_nces_crosswalk)
+- [NORC at University of Chicago, Appendix B (pdf)](https://www.norc.org/content/dam/norc-org/pdfs/HAA%20Phase%201%20Main%20Findings%20Report%20-%20NORC%20-%208.31.2011.pdf)
+
+If I find more, I will add them here.
