@@ -107,6 +107,15 @@ def install_httpfs(duck: duckdb.DuckDBPyConnection):
     duckdb.execute(f"INSTALL '{file_name}'")
 
 
+def table_exists(duck: duckdb.DuckDBPyConnection, table_name: str) -> bool:
+    return bool(
+        duck.sql(
+            "select * from duckdb_tables() where table_name = ?",
+            params=[table_name],
+        ).shape[0]
+    )
+
+
 if __name__ == "__main__":
     with duckdb.connect() as duck:  # type: ignore
         install_and_load(duck, "spatial", use_https=True)
