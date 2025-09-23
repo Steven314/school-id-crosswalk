@@ -1,2 +1,6 @@
 .vscode/
 *.gz
+__pycache__/
+raw-data/
+extracted-zips/
+clean-data/
