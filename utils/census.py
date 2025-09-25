@@ -2,34 +2,107 @@ import os
 import requests
 import zipfile
 import time
+import duckdb
+from utils.duckdb import table_exists
 
 
-def census_download(url: str, dest_file: str) -> None:
-    """Conditionally Download Raw Data From a URL
+class Census:
+    def __init__(
+        self,
+        table_name: str,
+        source_name: str,
+        year: str | int,
+        state: str | int = "us",
+    ):
+        # parameters
+        self.year = year
+        self.state = f"{state:02}"
+        self.table_name = table_name
 
-    Args:
-        url (str): The URL where the data is downloaded.
-        dest_file (str): The file where the data is saved. This is inside the `raw-data` directory.
-    """
+        # build URL
+        self.file = f"tl_{self.year}_{self.state}_{source_name.lower()}.zip"
 
-    path = os.path.join("raw-data", dest_file)
+        self.base_name = self.file[:-4]
 
-    if not os.path.exists(path):
-        resp = requests.get(url)
+        self.base_url = (
+            "https://www2.census.gov/geo/tiger"
+            f"/TIGER{year}/{source_name.upper()}/"
+        )
+        self.url = self.base_url + self.file
 
-        with open(path, mode="wb") as file:
-            file.write(resp.content)
+        # storage locations
+        self.extracted_location = os.path.join(
+            "extracted-zips", self.base_name
+        )
 
-        # sleep to avoid being rate limited
-        time.sleep(1)
+        self.raw_file_loc = os.path.join("raw-data", self.file)
 
-    return None
+        self.shape_file = os.path.join(
+            self.extracted_location, self.base_name + ".shp"
+        )
 
+    def download(self) -> None:
+        """Conditionally download raw data from a URL."""
 
-def census_extract(file: str, dest_dir: str):
-    if not os.path.exists(file):
-        raise FileNotFoundError("The ZIP file was not found.")
+        if not os.path.exists(self.raw_file_loc):
+            resp = requests.get(self.url)
 
-    if not os.path.exists(dest_dir):
-        with zipfile.ZipFile(file, "r") as z:
-            z.extractall(dest_dir)
+            with open(self.raw_file_loc, mode="wb") as file:
+                file.write(resp.content)
+
+            # sleep to avoid being rate limited
+            time.sleep(1)
+
+        return None
+
+    def extract(self) -> None:
+        """Conditionally extract the contents of the ZIP file."""
+
+        if not os.path.exists(self.raw_file_loc):
+            raise FileNotFoundError("The ZIP file was not found.")
+
+        if not os.path.exists(self.extracted_location):
+            with zipfile.ZipFile(self.shape_file, "r") as z:
+                z.extractall(self.extracted_location)
+
+        return None
+
+    def append_to_duckdb(self, duck_con: duckdb.DuckDBPyConnection) -> None:
+        """Append the Data to DuckDB
+
+        Args:
+            duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
+
+        Raises:
+            FileNotFoundError: When the shapefile is not found.
+
+        Returns:
+            None: Returns nothing.
+        """
+
+        sql = (
+            f"select *, edition: {self.year}::INT "
+            + f"from st_read('{self.shape_file}')"
+        )
+
+        if not os.path.exists(self.shape_file):
+            raise FileNotFoundError("The shapefile was not found.")
+
+        # if the table does not exist at all, add this segment to the table.
+        if not table_exists(duck_con, self.table_name):
+            duck_con.sql(sql).create(self.table_name)
+        else:
+            query_str = f"edition = {self.year}"
+            if self.state != "us":
+                query_str += f" and statefp = '{self.state}'"
+
+            # is the current state/year combination already present?
+            current_rows_present = (
+                duck_con.table(self.table_name).filter(query_str).shape[0]
+            )
+
+            # if not present, insert it.
+            if current_rows_present == 0:
+                duck_con.execute(f"INSERT INTO {self.table_name} " + sql)
+
+        return None
