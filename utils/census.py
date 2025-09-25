@@ -62,7 +62,7 @@ class Census:
             raise FileNotFoundError("The ZIP file was not found.")
 
         if not os.path.exists(self.extracted_location):
-            with zipfile.ZipFile(self.shape_file, "r") as z:
+            with zipfile.ZipFile(self.raw_file_loc, "r") as z:
                 z.extractall(self.extracted_location)
 
         return None
