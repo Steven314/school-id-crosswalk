@@ -11,3 +11,6 @@ build_states:
 
 build_zctas:
 	python -m data_collection.us_census.zip_codes
+
+build_ipeds_hd:
+	python -m data_collection.hd
