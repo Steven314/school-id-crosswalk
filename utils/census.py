@@ -72,12 +72,6 @@ class Census:
 
         Args:
             duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
-
-        Raises:
-            FileNotFoundError: When the shapefile is not found.
-
-        Returns:
-            None: Returns nothing.
         """
 
         sql = (

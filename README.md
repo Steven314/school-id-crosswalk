@@ -22,6 +22,25 @@ This project aims to use several methods to match location information and multi
 
 At the K-12 level, I would like to be able to also connect individuals schools to their district in addition to ZIP, county, and state.
 
+### Data Collection
+
+- [X] IPEDS HD table 2009 to 2024 (present)
+- [X] US Census Geographies
+  - [X] School District
+  - [X] ZCTA
+  - [X] County
+  - [X] State
+- [ ] CEEB
+  - [ ] Higher Education Institutions
+  - [ ] US High Schools
+- [ ] NCES
+  - [ ] Higher Education Institutions
+  - [ ] US High Schools
+- [ ] State-Level ID Systems
+  - [ ] Indiana
+  - [ ] Michigan
+  - [ ] Ohio
+
 ## Tools & Software
 
 - [DuckDB](https://duckdb.org)
