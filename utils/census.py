@@ -1,9 +1,7 @@
 import os
-import requests
-import zipfile
-import time
 import duckdb
 from utils.duckdb import table_exists
+from utils.conditionals import conditional_download, conditional_extract
 
 
 class Census:
@@ -41,31 +39,11 @@ class Census:
             self.extracted_location, self.base_name + ".shp"
         )
 
-    def download(self) -> None:
-        """Conditionally download raw data from a URL."""
+    def download(self):
+        conditional_download(self.url, self.raw_file_loc, sleep=True)
 
-        if not os.path.exists(self.raw_file_loc):
-            resp = requests.get(self.url)
-
-            with open(self.raw_file_loc, mode="wb") as file:
-                file.write(resp.content)
-
-            # sleep to avoid being rate limited
-            time.sleep(1)
-
-        return None
-
-    def extract(self) -> None:
-        """Conditionally extract the contents of the ZIP file."""
-
-        if not os.path.exists(self.raw_file_loc):
-            raise FileNotFoundError("The ZIP file was not found.")
-
-        if not os.path.exists(self.extracted_location):
-            with zipfile.ZipFile(self.raw_file_loc, "r") as z:
-                z.extractall(self.extracted_location)
-
-        return None
+    def extract(self):
+        conditional_extract(self.raw_file_loc, self.extracted_location)
 
     def append_to_duckdb(self, duck_con: duckdb.DuckDBPyConnection) -> None:
         """Append the Data to DuckDB

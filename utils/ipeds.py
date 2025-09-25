@@ -1,7 +1,7 @@
 import os
-import requests
-import time
 import zipfile
+from utils.conditionals import conditional_download
+
 
 class IPEDS:
     def __init__(
@@ -34,27 +34,12 @@ class IPEDS:
         )
 
     def download(self):
-        """Conditionally download raw data from a URL."""
+        conditional_download(self.url, self.raw_file_loc, sleep=True)
 
-        if not os.path.exists(self.raw_file_loc):
-            resp = requests.get(self.url)
-
-            with open(self.raw_file_loc, mode="wb") as file:
-                file.write(resp.content)
-
-            # sleep to avoid being rate limited
-            time.sleep(1)
-
-        return None
-
-    def extract(self) -> None:
-        """Conditionally extract the contents of the ZIP file."""
-
+    def extract(self):
         if not os.path.exists(self.raw_file_loc):
             raise FileNotFoundError("The ZIP file was not found.")
 
         if not os.path.exists(self.csv_file):
             with zipfile.ZipFile(self.raw_file_loc, "r") as z:
                 z.extractall(self.extracted_location)
-
-        return None
