@@ -33,7 +33,7 @@ At the K-12 level, I would like to be able to also connect individuals schools t
   - [X] County
   - [X] State
 - [ ] CEEB
-  - [ ] Higher Education Institutions
+  - [X] Higher Education Institutions
   - [ ] US High Schools
 - [X] National Student Clearinghouse (NSC)
 - [X] NCES (EDGE)
