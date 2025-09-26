@@ -12,6 +12,7 @@ This project aims to use several methods to match location information and multi
 - [ ] [IPEDS](https://nces.ed.gov/ipeds/)
 - [ ] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
 - [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
+- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations)
 
 ### K-12 Education
 
@@ -19,6 +20,7 @@ This project aims to use several methods to match location information and multi
 - [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
 - [ ] state-level identification systems
   - namely Michigan and Ohio at first.
+- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations)
 
 At the K-12 level, I would like to be able to also connect individuals schools to their district in addition to ZIP, county, and state.
 
@@ -33,9 +35,10 @@ At the K-12 level, I would like to be able to also connect individuals schools t
 - [ ] CEEB
   - [ ] Higher Education Institutions
   - [ ] US High Schools
-- [ ] NCES
-  - [ ] Higher Education Institutions
-  - [ ] US High Schools
+- [X] National Student Clearinghouse (NSC)
+- [X] NCES (EDGE)
+  - [X] Higher Education Institutions
+  - [X] US High Schools
 - [ ] State-Level ID Systems
   - [ ] Indiana
   - [ ] Michigan

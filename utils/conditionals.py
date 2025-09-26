@@ -3,6 +3,7 @@ import requests
 import zipfile
 import time
 
+
 def conditional_download(url: str, dest: str, sleep: bool = False) -> None:
     """Conditionally download a file from a URL.
 
@@ -25,18 +26,24 @@ def conditional_download(url: str, dest: str, sleep: bool = False) -> None:
     return None
 
 
-def conditional_extract(raw_file: str, dest: str) -> None:
+def conditional_extract(
+    raw_file: str, dest: str, dest_specific: str | None = None
+) -> None:
     """Conditionally extract the contents of the ZIP file.
 
     Args:
         raw_file (str): The location of the ZIP file.
-        dest (str): THe directory where to put the extraction.
+        dest (str): The directory where to put the extraction.
+        dest_specific (str, None, optional): A specific file which to look at.
     """
+
+    if dest_specific is None:
+        dest_specific = dest
 
     if not os.path.exists(raw_file):
         raise FileNotFoundError("The ZIP file was not found.")
 
-    if not os.path.exists(dest):
+    if not os.path.exists(dest_specific):
         with zipfile.ZipFile(raw_file, "r") as z:
             z.extractall(dest)
 

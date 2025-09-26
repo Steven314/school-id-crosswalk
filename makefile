@@ -26,3 +26,13 @@ build_zctas:
 .PHONY: build_ipeds_hd
 build_ipeds_hd:
 	python -m data_collection.hd
+
+# NCES
+.PHONY: build_nces
+build_nces:
+	python -m data_collection.nces
+
+# NCS
+.PHONY: build_ncs
+build_ncs:
+	python -m data_collection.ncs
