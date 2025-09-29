@@ -37,6 +37,6 @@ build_nces:
 build_ncs:
 	python -m data_collection.ncs
 
-# CEEB (college)
+# CEEB
 .PHONY: build_ceeb
 	python -m data_collection.ceeb

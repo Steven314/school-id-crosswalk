@@ -1,5 +1,6 @@
 import duckdb
-from utils.ceeb import CEEBCollege
+
+from utils.ceeb import CEEBCollege, CEEBHighSchool
 
 # The CEEB codes for colleges/universities are four digits. The only place I
 # could find them is in a PDF from the College Board.
@@ -26,3 +27,13 @@ if __name__ == "__main__":
 
         ceeb_data = ceeb.process()
         ceeb.append_to_duckdb(duck, ceeb_data)
+
+    with CEEBHighSchool(timeout_limit=30) as ceeb:
+        data = ceeb.process()
+
+        with duckdb.connect(  # type: ignore
+            "clean-data/ceeb.duckdb"
+        ) as duck:
+            duckdb.DuckDBPyConnection
+
+            ceeb.append_to_duckdb(duck, data)
