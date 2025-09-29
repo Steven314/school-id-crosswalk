@@ -57,5 +57,7 @@ At the K-12 level, I would like to be able to also connect individuals schools t
 
 - [`UCBoulder/ceeb_nces_crosswalk`](https://github.com/UCBoulder/ceeb_nces_crosswalk)
 - [NORC at University of Chicago, Appendix B (pdf)](https://www.norc.org/content/dam/norc-org/pdfs/HAA%20Phase%201%20Main%20Findings%20Report%20-%20NORC%20-%208.31.2011.pdf)
+- Mark Davenport's [presentation](https://uncg.sharepoint.com/sites/dept-10803/Documents/Forms/AllItems.aspx?id=%2Fsites%2Fdept%2D10803%2FDocuments%2FWebsite%2FPublic%2FResearch%2FNCES%2DCEEB%20Crosswalk%202nd%20Ed%2E%20NCAIR%202025%2Epdf&parent=%2Fsites%2Fdept%2D10803%2FDocuments%2FWebsite%2FPublic%2FResearch&p=true&ga=1) from the [NCAIR 2025 Conference](https://nc-air.org/2025-ncair-conference-presentations/).
+  - His presentation has some useful information about how the NCES and LEA codes are constructed.
 
 If I find more, I will add them here.
