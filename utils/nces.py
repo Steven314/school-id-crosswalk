@@ -86,11 +86,18 @@ class NCES:
         """
 
         sql = (
-            f"select *, edition: {self.year}::INT "
-            f"from read_xlsx('{self.excel_file}')"
+            "select if("
+            "typeof(columns(*)) = 'VARCHAR', "
+            "cast_to_type("
+            "if(cast_to_type(columns(*), '') in ('M', 'N'), null, columns(*)),"
+            "columns(*)"
+            "), "
+            "columns(*)"
+            "), "
+            f"edition: {self.year}::INT "
+            f"from read_xlsx('{self.excel_file}') "
+            "order by cnty"
         )
-
-        print(self.excel_file)
 
         if not os.path.exists(self.excel_file):
             raise FileNotFoundError("The Excel file was not found.")

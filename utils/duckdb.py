@@ -4,6 +4,27 @@ import duckdb
 import polars as pl
 
 
+def install(
+    duck: duckdb.DuckDBPyConnection, ext: str, use_https: bool = False
+):
+    if use_https:
+        https_url = "https://extensions.duckdb.org"
+
+        if not check_installed(duck, "httpfs"):
+            install_httpfs(duck)
+
+        if not check_installed(duck, ext):
+            duck.install_extension(ext, repository_url=https_url)
+    else:
+        if not check_installed(duck, ext):
+            duck.install_extension(ext)
+
+
+def load(duck: duckdb.DuckDBPyConnection, ext: str):
+    if not check_loaded(duck, ext):
+        duck.load_extension(ext)
+
+
 def install_and_load(
     duck: duckdb.DuckDBPyConnection, ext: str, use_https: bool = False
 ):
@@ -19,20 +40,8 @@ def install_and_load(
             over HTTP.
     """
 
-    if use_https:
-        https_url = "https://extensions.duckdb.org"
-
-        if not check_installed(duck, "httpfs"):
-            install_httpfs(duck)
-
-        if not check_installed(duck, ext):
-            duck.install_extension(ext, repository_url=https_url)
-    else:
-        if not check_installed(duck, ext):
-            duck.install_extension(ext)
-
-    if not check_loaded(duck, ext):
-        duck.load_extension(ext)
+    install(duck, ext, use_https)
+    load(duck, ext)
 
 
 def check_installed(duck: duckdb.DuckDBPyConnection, ext: str) -> bool:

@@ -33,11 +33,23 @@ class HD:
             duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
         """
 
+        # The some of the columns have extra spaces which needlessly increases
+        # the file size. We need to trim only the VARCHAR columns.
+        #
+        # Source: https://github.com/duckdb/duckdb/discussions/10842
+        #
+        # Also, " " needs to be considered NULL.
+
         sql = (
-            "select *, edition: regexp_extract(filename, '\\d{4}')::INT "
+            "select if("
+            "typeof(columns(*)) = 'VARCHAR', "
+            "cast_to_type(trim(cast_to_type(columns(*), '')), columns(*)), "
+            "columns(*)"
+            "), "
+            "edition: regexp_extract(filename, '\\d{4}')::INT "
             "from read_csv("
             f"'{os.path.join(self.extraction_location, '**.csv')}',"
-            "ignore_errors = true, union_by_name = true"
+            "ignore_errors = true, union_by_name = true, nullstr = ' '"
             ")"
         )
 
