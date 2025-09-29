@@ -1,7 +1,9 @@
-import duckdb
 import os
-from utils.duckdb import table_exists
+
+import duckdb
+
 from utils.conditionals import conditional_download, conditional_extract
+from utils.duckdb import table_exists
 
 
 class NCES:

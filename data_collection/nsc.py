@@ -1,7 +1,9 @@
-import duckdb
 import os
-from utils.duckdb import install_and_load
+
+import duckdb
+
 from utils.conditionals import conditional_download
+from utils.duckdb import install_and_load
 
 # The National Student Clearinghouse provides a fairly recent crosswalk between
 # NSC codes and the UNITIDs used in IPEDS data.

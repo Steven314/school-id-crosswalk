@@ -1,4 +1,5 @@
 import duckdb
+
 from utils.duckdb import install_and_load
 from utils.nces import NCES
 

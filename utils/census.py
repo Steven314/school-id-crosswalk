@@ -1,7 +1,9 @@
 import os
+
 import duckdb
-from utils.duckdb import table_exists
+
 from utils.conditionals import conditional_download, conditional_extract
+from utils.duckdb import table_exists
 
 
 class Census:

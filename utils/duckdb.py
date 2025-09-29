@@ -89,8 +89,9 @@ def install_httpfs(duck: duckdb.DuckDBPyConnection):
     Args:
         duck (duckdb.DuckDBPyConnection): The DuckDB connection.
     """
-    import requests
     import os
+
+    import requests
 
     platform = duck.execute("PRAGMA platform").fetchall()[0][0]
     version = duckdb.__version__

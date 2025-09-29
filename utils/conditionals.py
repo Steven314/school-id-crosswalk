@@ -1,7 +1,8 @@
 import os
-import requests
-import zipfile
 import time
+import zipfile
+
+import requests
 
 
 def conditional_download(url: str, dest: str, sleep: bool = False) -> None:

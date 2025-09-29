@@ -39,4 +39,5 @@ build_ncs:
 
 # CEEB
 .PHONY: build_ceeb
+build_ceeb:
 	python -m data_collection.ceeb

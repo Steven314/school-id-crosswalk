@@ -1,6 +1,7 @@
 import duckdb
-from utils.duckdb import install_and_load
+
 from utils.census import Census
+from utils.duckdb import install_and_load
 
 
 class ZIPCodeData(Census):

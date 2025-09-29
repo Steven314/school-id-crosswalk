@@ -32,9 +32,9 @@ At the K-12 level, I would like to be able to also connect individuals schools t
   - [X] ZCTA
   - [X] County
   - [X] State
-- [ ] CEEB
+- [X] CEEB
   - [X] Higher Education Institutions
-  - [ ] US High Schools
+  - [X] US High Schools
 - [X] National Student Clearinghouse (NSC)
 - [X] NCES (EDGE)
   - [X] Higher Education Institutions

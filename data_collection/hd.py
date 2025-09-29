@@ -1,6 +1,8 @@
-import duckdb
 import os
 from typing import List
+
+import duckdb
+
 from utils.ipeds import IPEDS
 
 
