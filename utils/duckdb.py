@@ -1,12 +1,7 @@
-###
-#
-# This facilitates the installation and loading of the required DuckDB
-# extensions.
-#
-###
-
+import os
 
 import duckdb
+import polars as pl
 
 
 def install_and_load(
@@ -115,6 +110,28 @@ def table_exists(duck: duckdb.DuckDBPyConnection, table_name: str) -> bool:
             params=[table_name],
         ).shape[0]
     )
+
+
+def attach_db_dir(duck: duckdb.DuckDBPyConnection, dir: str) -> pl.DataFrame:
+    """Attach all DuckDB files in a directory.
+
+    Args:
+        duck (duckdb.DuckDBPyConnection): The DuckDB connection.
+        dir (str): The directory holding the database files.
+
+    Returns:
+        pl.DataFrame: A table of the attached databases in order to confirm
+            that they are all there.
+    """
+    for file in os.listdir(dir):
+        if file.endswith(".duckdb"):
+            duck.execute(f"ATTACH IF NOT EXISTS '{os.path.join(dir, file)}'")
+
+    return duck.sql(
+        "SELECT database_name, path, readonly "
+        "FROM duckdb_databases() "
+        "WHERE NOT internal"
+    ).pl()
 
 
 if __name__ == "__main__":
