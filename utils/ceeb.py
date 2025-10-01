@@ -128,6 +128,8 @@ class CEEBHighSchool:
             )
         ] * self.n_states
 
+        self.storage_path = os.path.join("extracted-zips", "ceeb")
+
         self.table_name = "school"
 
     def __enter__(self):
@@ -182,34 +184,51 @@ class CEEBHighSchool:
         self.driver.find_element(By.CLASS_NAME, "cb-btn-primary").click()
 
     def get_table(self):
+        self.file_path = os.path.join(
+            self.storage_path, self.state_name + ".txt"
+        )
+
         # The Marshall Islands apparently have no results which results in an
         # error. Skip that case.
 
         if self.state_name == "Marshall Islands":
             return
 
-        wait = WebDriverWait(
-            self.driver,
-            timeout=self.timeout_limit,  # the larger states take longer.
-            poll_frequency=1,
-            ignored_exceptions=[Exception],
-        )
+        if not os.path.exists(self.file_path):
+            self.click_submit()
 
-        # wait until the table loads.
-        table = wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "ul.cb-text-list.cb-text-list-feature")
+            wait = WebDriverWait(
+                self.driver,
+                timeout=self.timeout_limit,  # the larger states take longer.
+                poll_frequency=1,
+                ignored_exceptions=[Exception],
             )
-        )
 
-        # the text out of the table.
-        table_contents = str(table.get_attribute("innerText"))  # type: ignore
+            # wait until the table loads.
+            table = wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "ul.cb-text-list.cb-text-list-feature")
+                )
+            )
+
+            # the text out of the table.
+            table_contents = str(table.get_attribute("innerText"))  # type: ignore
+
+            if not os.path.exists(self.storage_path):
+                os.mkdir(self.storage_path)
+
+            with open(self.file_path, "w") as f:
+                f.write(table_contents)
+
+        else:
+            with open(self.file_path, "r") as f:
+                table_contents = f.read()
 
         # Convert it from "<name>\n<number>\n" to "<name>|<number>\n".
         # This is essentially making it a pipe-separated file as a single
         # string.
         pipe_table: str = re.sub(
-            r"(\w+)\n(\d+)\n?",
+            r"(.*)\n(\d+)\n?",
             r"\1|\2\n",
             table_contents,
         )
@@ -234,7 +253,6 @@ class CEEBHighSchool:
             # state index is iterated in choosing the next state
             self.choose_next_state()
 
-            self.click_submit()
             self.get_table()
 
             # wait a bit to be safe

@@ -38,9 +38,7 @@ class NCES:
             "extracted-zips", self.base_name, self.base_name + ".xlsx"
         )
 
-        self.table_name = (
-            "school" if self.school_type != "POSTSECSCH" else "university"
-        )
+        self.table_name = school_type.lower()
 
     def _convert_school_type(self, school_type: str):
         match school_type.lower():
