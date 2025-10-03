@@ -37,10 +37,79 @@ Pulling all of those is a pain and takes a long time.
 
 These have three identification systems: IPEDS, NSC, and CEEB codes.
 Converting between IPEDS and NSC is already done via the NSC table from NSC themselves.
+Although, the NSC table does not always have historical IPEDS codes that are no longer in use.
 Converting between those two and CEEB is more difficult.
 It has the same problems as with the high schools, but should not be as difficult since there are fewer institutions.
 
----
+There are a number of institutions under the same name in the same state.
+Many of these are multi-location technical colleges or similar.
+There are 138 total duplicates based on the IPEDS HD table.
+I checked a few of these and they have been closed for some time (at least that location).
+As the most recent IPEDS appearance of them was not the most recent edition, I'm guessing that many of these are institutions that have closed.
+
+It is common for a single institution to have multiple CEEB codes which correspond to different parts of the university.
+Another difficulty is when a college/university undergoes a name change.
+
+Many older institutions are available in the IPEDS data, but not in the CEEB data.
+
+### Adjustments
+
+Before any adjustments the exact match rate is about 55% of CEEB codes.
+After the below adjustments the rate is just above 75% of included CEEB codes.
+
+#### General
+
+These are the alterations made to the names in IPEDS and CEEB data to unify common variations.
+Most of these are to allow for more exact matches.
+By increasing the number of exact matches through basic changes, this reduces the potential for errors in the fuzzy matching.
+
+- `A&M`, `A & M`, and `Agricultural and Mechanical` were unified to `A&M`.
+- ` and ` was converted to ` & `. It seems that IPEDS often has '&' instead of
+  'and' while the College Board prefers the opposite.
+- `St.` and `Saint` were unified to `Saint`.
+- Any leading `The` were removed.
+- Any slashes, `\`, were removed.
+- The CEEB names prefer to designate a campus with the style `Main: Branch`
+  while IPEDS prefers `Main-Branch`. The use of `:` and `-` conflicts in places
+  where it is actually part of the name, so all instances of `:` and `-` were
+  removed and replaced with a space. Also, extraneous spaces were removed.
+- Sometimes initials have a `.` as in `George C. Wallace` as opposed to
+  `George C Wallace`. Dots are removed and this initials are unified to the
+  latter format.
+- `Campus` shows up a fair amount in the IPEDS names, but not in the CEEB names.
+  It was removed for both.
+- `at` is often used for branch campuses in the CEEB names, but not in the IPEDS
+  names. It was removed for both.
+- `Ft` is sometimes used in the CEEB names for `Fort`. These were unified to
+  `Fort`.
+- Sometimes a CEEB name has an abbreviate name in parentheses. The IPEDS names only rarely have parentheses and it is usually for a `The` prefix.
+
+#### Specific
+
+- In the CEEB name some of the University of Wisconsin branch colleges are
+  named with a `UW` instead of the full name.
+- The 'City University of New York' was be reduced to CUNY.
+- In the CEEB names the 'Advanced Technical Institute' is listed by ATI. These
+  will be unified as `ATI`. (I don't think this actually helps anything.)
+- In IPEDS name `Arizona College of Nursing Tucson` its CEEB counterpart has a
+  typo. (This creates one additional exact match.)
+- For some reason the California State University CEEB names has `Apply` on the
+  end of it. That was removed.
+
+### Exclusions
+
+There are a lot of CEEB codes that aren't useful for matching with institutions.
+
+- The CEEB data includes many non-educational entities. That being
+  politicians, individuals, and companies. These should be excluded since they
+  would not have a matching IPEDS or NCES code. There aren't a vast number of
+  these so a negative filter is simple enough to isolate them. Then flip it to a
+  positive filter to remove them. (There was a little over 200 of these.)
+- Naval and Navy recruiting doesn't need to be included.
+- Some institutions offer an 'Upward Bound Program'. I'm electing to exclude
+  these since they are an assistance program and not an institution themselves.
+- Some institutions also have an 'Educational Talent Search'. These are
+  excluded.
 
 ## BM25
 
@@ -49,3 +118,12 @@ I tried to wrap this into a macro that accepts a column or somehow make it work 
 The way around this is to use a loop which isn't able to take advantage of multithreading or vectorization, so it is slower.
 
 Perhaps in the future a version of the FTS extension will allow that functionality.
+
+### Higher Education
+
+I've matched the CEEB names without an exact match onto all the IPEDS names since there are more IPEDS records.
+Taking all the IPEDS names allows for CEEB codes with correspond to part of a university to still match their parent university.
+
+The matching was filtered by state so the results are guaranteed to in the correct state.
+The city was also indexed alongside the IPEDS name if there isn't a match it is at least more likely to be in the right city.
+
