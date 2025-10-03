@@ -35,8 +35,8 @@ Pulling all of those is a pain and takes a long time.
 
 ## Higher Educational Institutions
 
-These have three identification systems: IPEDS, NCS, and CEEB codes.
-Converting between IPEDS and NCS is already done via the NCS table from NCS themselves.
+These have three identification systems: IPEDS, NSC, and CEEB codes.
+Converting between IPEDS and NSC is already done via the NSC table from NSC themselves.
 Converting between those two and CEEB is more difficult.
 It has the same problems as with the high schools, but should not be as difficult since there are fewer institutions.
 

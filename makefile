@@ -32,10 +32,10 @@ build_ipeds_hd:
 build_nces:
 	python -m data_collection.nces
 
-# NCS
-.PHONY: build_ncs
+# NSC
+.PHONY: build_nsc
 build_ncs:
-	python -m data_collection.ncs
+	python -m data_collection.nsc
 
 # CEEB
 .PHONY: build_ceeb

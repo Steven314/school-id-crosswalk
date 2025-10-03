@@ -11,7 +11,7 @@ from utils.duckdb import install_and_load
 # It can be found at https://nscresearchcenter.org/workingwithourdata/
 
 
-class NCS:
+class NSC:
     def __init__(self):
         self.file_name = "NSC_SCHOOL_CODE_TO_IPEDS_UNIT_ID_XWALK_APR-2023.xlsx"
 
@@ -57,6 +57,6 @@ if __name__ == "__main__":
 
         install_and_load(duck, "excel", use_https=True)
 
-        ncs = NCS()
-        ncs.download()
-        ncs.append_to_duckdb(duck)
+        nsc = NSC()
+        nsc.download()
+        nsc.append_to_duckdb(duck)
