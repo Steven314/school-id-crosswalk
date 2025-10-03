@@ -1,7 +1,7 @@
+import json
 import os
 import re
 import time
-import json
 from io import StringIO
 from typing import List
 
@@ -10,8 +10,8 @@ import pdfplumber
 import polars as pl
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver import ActionChains
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select

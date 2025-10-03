@@ -1,7 +1,9 @@
-import duckdb
 import os
-from typing import List, Any
+from typing import Any, List
+
+import duckdb
 import polars as pl
+
 from utils.duckdb import attach_db_dir
 
 

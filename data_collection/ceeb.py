@@ -1,7 +1,7 @@
 import duckdb
-
 import polars as pl
-from utils.ceeb import CEEBCollege, CEEBHighSchool, CEEB_NCAA
+
+from utils.ceeb import CEEB_NCAA, CEEBCollege, CEEBHighSchool
 
 # The CEEB codes for colleges/universities are four digits. The only place I
 # could find them is in a PDF from the College Board.
