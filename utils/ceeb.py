@@ -1,13 +1,17 @@
 import os
 import re
 import time
+import json
 from io import StringIO
 from typing import List
 
 import duckdb
 import pdfplumber
 import polars as pl
+from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver import ActionChains
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
@@ -268,3 +272,150 @@ class CEEBHighSchool:
         duck_con.execute(
             f"CREATE OR REPLACE TABLE {self.table_name} AS ({sql})"
         )
+
+
+class CEEB_NCAA:
+    def __init__(self, timeout_limit: int = 20):
+        # initial URL of the page
+        self.url = (
+            "https://web3.ncaa.org/"
+            "hsportal/"
+            "exec/"
+            "hsAction?hsActionSubmit=searchHighSchool"
+        )
+
+        self.timeout_limit = timeout_limit
+
+        self.storage_path = os.path.join("extracted-zips", "ceeb_ncaa")
+
+        if not os.path.exists(self.storage_path):
+            os.mkdir(self.storage_path)
+
+        self.table_name = "ncaa_school"
+
+    def __enter__(self):
+        self.driver = webdriver.Chrome()
+        self.driver.get(self.url)
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):  # type: ignore
+        self.driver.quit()
+
+    def search_ceeb_code(self, ceeb: str):
+        wait = WebDriverWait(
+            self.driver,
+            timeout=self.timeout_limit,
+            poll_frequency=0.25,
+            ignored_exceptions=[Exception],
+        )
+
+        # find the text box
+        ceeb_text_box = wait.until(
+            EC.presence_of_element_located((By.ID, "ceebCodeOnCrsDispId"))
+        )
+
+        ceeb_text_box.clear()
+
+        # enter the CEEB code
+        ActionChains(self.driver).send_keys_to_element(
+            ceeb_text_box, ceeb
+        ).perform()
+
+        # hit "Search"
+        self.driver.find_element(by=By.NAME, value="hsActionSubmit").click()
+
+    def pull_table(self, ceeb: str) -> dict[str, str | None]:
+        wait = WebDriverWait(
+            self.driver,
+            timeout=self.timeout_limit,
+            poll_frequency=0.25,
+            ignored_exceptions=[Exception],
+        )
+
+        table = wait.until(
+            EC.any_of(
+                EC.presence_of_element_located(
+                    (
+                        By.CSS_SELECTOR,
+                        "div.panelsStayOpenHsSummary.accordion-collapse.collapse.show",
+                    )
+                ),
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "span.error")
+                ),
+            )
+        )
+
+        try:
+            table = table.find_element(  # type: ignore
+                by=By.CSS_SELECTOR,
+                value="table.table.table-sm.table-bordered.border-primary",
+            )
+
+            rows = BeautifulSoup(
+                str(table.get_attribute("innerHTML")),  # type: ignore
+                "html.parser",
+            ).find_all("tr")
+
+            data: dict[str, str | None] = dict(
+                [
+                    [
+                        td.get_text(separator="<br>", strip=True)  # type: ignore
+                        for td in row.find_all("td")  # type: ignore
+                    ]
+                    for row in rows[1:5]
+                ]
+            )
+
+        except NoSuchElementException:
+            data: dict[str, str | None] = dict(
+                {
+                    "NCAA High School Code": None,
+                    "CEEB Code": ceeb,
+                    "High School Name": None,
+                    "Address": None,
+                }
+            )
+
+        return data
+
+    def return_to_search(self):
+        self.driver.back()
+
+    def check_ceeb_data(self, file: str) -> bool:
+        return os.path.exists(file)
+
+    def load_ceeb_data(self, file: str) -> dict[str, str]:
+        with open(file, "r") as f:
+            data = json.load(f)
+
+        return data
+
+    def save_ceeb_data(self, file: str, data: dict[str, str]):
+        with open(file, "w") as f:
+            f.write(json.dumps(data))
+
+    def process(self, ceeb: str):
+        file = os.path.join(self.storage_path, ceeb + ".json")
+
+        if not self.check_ceeb_data(file):
+            # if the data is not known, download it.
+            self.search_ceeb_code(ceeb)
+
+            data = self.pull_table(ceeb)
+
+            self.save_ceeb_data(file, data)  # type: ignore
+            self.return_to_search()
+        else:
+            # if it is known, load it.
+            data = self.load_ceeb_data(file)
+
+        return data
+
+    def append_to_duckdb(
+        self, duck: duckdb.DuckDBPyConnection, data: pl.DataFrame
+    ):
+        sql = "SELECT * FROM data"
+
+        duck.sql(f"CREATE OR REPLACE TABLE {self.table_name} AS ({sql})")

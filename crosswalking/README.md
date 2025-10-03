@@ -31,7 +31,10 @@ Pulling all of those is a pain and takes a long time.
 - The NCAA site doesn't have every CEEB code that is found on the College Board
   site. That may not be much of an issue since the College Board has many codes
   for places other than high schools, which is mainly what I'm after.
-- Pulling from the NCAA site takes a very long time. It takes a little under a second to run each query and there over 47,000 queries :neutral_face:.
+- Pulling from the NCAA site takes a very long time. It takes a little under a
+  second to run each query and there over 47,000 queries :neutral_face:. This
+  ended up being a multi-day process to slowly pull all the records and monitor
+  it.
 
 ## Higher Educational Institutions
 
