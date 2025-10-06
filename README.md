@@ -3,16 +3,28 @@
 When relating educational data from different sources, you often don't have a common identifier.
 This makes connecting data difficult.
 
+## Goal
+
+The goal is to connect the identification systems of the below sources with minimal manual intervention.
+This differs from the Davenport dataset (linked at the bottom and referenced by the UC-Boulder team) in that it all code will be open source from data collection to final output.
+
 ## Scope
 
 This project aims to use several methods to match location information and multiple identification systems.
 
+The resulting crosswalks have only the ID systems and spatial variables.
+General information that can be easily joined from the IPEDS directory information table (HD) will not be included so the data has only what you need and nothing extra.
+
 ### Higher Education
 
-- [ ] [IPEDS](https://nces.ed.gov/ipeds/)
-- [ ] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
-- [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
-- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations)
+- [X] [IPEDS](https://nces.ed.gov/ipeds/)
+- [X] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
+- [X] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) - We have coordinates from
+  IPEDS which can be spatially joined to geometries, as well as the city,
+  county, ZIP, and state which can be joined directly.
+- [X] [NSC](https://nscresearchcenter.org/workingwithourdata/)
+- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations) - The
+  data here is covered by IPEDS already, so this isn't needed.
 
 ### K-12 Education
 
