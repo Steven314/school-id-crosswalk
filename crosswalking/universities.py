@@ -6,324 +6,360 @@ import Levenshtein
 import polars as pl
 from thefuzz import fuzz  # type: ignore
 
-
-def create_table(duck: duckdb.DuckDBPyConnection, path: str, table_name: str):
-    with open(path) as f:
-        duck.sql(f"CREATE OR REPLACE TABLE {table_name} AS ({f.read()})")
-
-
-def create_school_tables(duck: duckdb.DuckDBPyConnection):
-    create_table(
-        duck,
-        os.path.join("crosswalking", "sql", "hd.sql"),
-        "universities.ipeds_hd",
-    )
-    create_table(
-        duck,
-        os.path.join("crosswalking", "sql", "ceeb_university.sql"),
-        "universities.ceeb_university",
-    )
-    create_table(
-        duck,
-        os.path.join("crosswalking", "sql", "nsc.sql"),
-        "universities.nsc_university",
-    )
-
-
-def search_index(
-    duck: duckdb.DuckDBPyConnection,
-    name: str,
-    state: str,
-    ceeb: str,
-    limit: int = 5,
-):
-    sql = (
-        "SELECT * "
-        "FROM ("
-        "    SELECT *, fts_main_ipeds_multi_non_exact.match_bm25("
-        "        ipeds, "
-        "        ?"
-        "    ) AS match_score "
-        "    FROM ipeds_hd"
-        ")"
-        "WHERE match_score IS NOT NULL "
-        "AND lower(state) = lower(?)"
-        "ORDER BY match_score DESC "
-        "LIMIT ?"
-    )
-
-    search_results = (
-        duck.sql(sql, params=[name, state, limit])
-        .pl()
-        .with_columns(
-            search_name=pl.lit(name),
-            search_state=pl.lit(state),
-            ceeb=pl.lit(ceeb),
-        )
-    )
-
-    return search_results
-
-
-#####
-
-
-duck: duckdb.DuckDBPyConnection = duckdb.connect(  # type: ignore
-    "crosswalking/universities.duckdb"
+from utils.duckdb import (
+    attach_db,
+    create_fts_index,
+    create_table_file,
+    create_table_query,
 )
 
-for file in ["ceeb.duckdb", "ipeds.duckdb", "geography.duckdb", "nsc.duckdb"]:
-    if file.endswith(".duckdb"):
+
+class UniversityCrosswalk:
+    def __init__(
+        self,
+        duck: duckdb.DuckDBPyConnection,
+        clean_data_dir: str,
+        crosswalk_sql_dir: str,
+    ):
+        self.duck = duck
+
+        # the required SQL files
+        self.sql_file_names = ["hd", "ceeb_university", "nsc"]
+        self.sql_files = [
+            os.path.join(crosswalk_sql_dir, file + ".sql")
+            for file in self.sql_file_names
+        ]
+
+        # the tables to be created.
+        self.table_names = ["ipeds_hd", "ceeb_university", "nsc_university"]
+
+        # the required DuckDB files.
+        self.db_names = ["ceeb", "ipeds", "geography", "nsc"]
+
+        self.db_paths = [
+            os.path.join(clean_data_dir, db + ".duckdb")
+            for db in self.db_names
+        ]
+
+    def process(self):
+        print("Initialization...")
+        self.attach_dbs()
+        self.create_university_tables()
+
+        print("Finding Exact Matches...")
+        self.find_exact_matches()
+
+        print(f"Exact Match Quality: {self.exact_match_quality():.2%}")
+
+        print("Filtering Non-Exact Matches...")
+        self.find_non_exact_ceeb()
+        self.create_non_exact_multicampus()
+
+        print("Searching Index...")
+        self.build_index()
+        self.iterate_searching()
+        self.fuzzy_distance()
+
+        print("Writing Crosswalk")
+        self.write_crosswalk()
+
+    def attach_dbs(self):
+        for path in self.db_paths:
+            attach_db(self.duck, path)
+
+    def create_university_tables(self):
+        for file, name in zip(self.sql_files, self.table_names):
+            create_table_file(self.duck, name, file)
+
+    def build_index(self):
+        create_fts_index(
+            self.duck,
+            input_table="non_exact_multicampus",
+            input_id="ipeds",
+            input_values=["name", "city"],
+            stemmer="none",
+            stopwords="none",
+            overwrite=1,
+        )
+
+    def search_index(
+        self,
+        search_string: str,
+        search_state: str,
+        search_ceeb: str,
+        limit: int = 5,
+    ) -> pl.DataFrame:
+        sql = (
+            "SELECT * "
+            "FROM ("
+            "    SELECT "
+            "        *, "
+            "        fts_main_non_exact_multicampus.match_bm25("
+            "            ipeds, "
+            "            $search_string"
+            "        ) AS match_score "
+            # "    FROM ipeds_hd"
+            "    FROM non_exact_multicampus"
+            ")"
+            "WHERE match_score IS NOT NULL "
+            "AND lower(state) = lower($search_state)"
+            "ORDER BY match_score DESC "
+            "LIMIT $limit"
+        )
+
+        params: dict[str, str | int] = {
+            "search_string": search_string,
+            "search_state": search_state,
+            "limit": limit,
+        }
+
+        search_results = (
+            self.duck.sql(sql, params=params)
+            .pl()
+            .with_columns(
+                search_name=pl.lit(search_string),
+                search_state=pl.lit(search_state),
+                ceeb=pl.lit(search_ceeb),
+            )
+        )
+
+        return search_results
+
+    def iterate_searching(self):
+        result: List[pl.DataFrame] = []
+
+        for row in self.realize_non_exact_ceeb().iter_rows(named=True):
+            result.append(
+                self.search_index(
+                    search_string=row["name"],
+                    search_state=row["state"],
+                    search_ceeb=row["ceeb"],
+                    limit=10,
+                ).select(
+                    "match_score",
+                    "ceeb",
+                    "search_name",
+                    "ipeds",
+                    "name",
+                    "city",
+                    "state",
+                    "edition",
+                )
+            )
+
+        self.bm25_matches = (
+            pl.concat(result).sort("match_score", descending=True).sort("name")
+        )
+
+    def find_exact_matches(self):
+        self.exact_matches = self.duck.sql(
+            """
+            select 
+                method: 'exact',
+                ceeb,
+                ipeds,
+                ceeb_name,
+                ipeds_name,
+                edition,
+                multicampus,
+                city,
+                county_name,
+                zip,
+                a.state,
+                state_abbr,
+                state_fips,
+                fips,
+                latitude,
+                longitude 
+            from ipeds_hd a 
+            inner join ceeb_university b 
+            on (lower(a.name) = lower(b.name) and a.state = b.state)
+            """
+        )
+
+    def realize_exact_matches(self):
+        if not hasattr(self, "exact_matches_pl"):
+            self.exact_matches_pl = self.exact_matches.pl()
+
+        return self.exact_matches_pl
+
+    def exact_match_quality(self):
+        n_ipeds = len(self.duck.sql("from ipeds_hd").pl())
+        n_ceebs = len(self.duck.sql("from ceeb_university").pl())
+        n_exact = len(self.exact_matches.pl())
+
+        coverage = n_exact / min(n_ipeds, n_ceebs)
+
+        return coverage
+
+    def find_non_exact_ceeb(self):
+        self.non_exact_ceeb = self.duck.table("ceeb_university").join(
+            self.exact_matches.filter("multicampus or multicampus is null"),
+            condition="ceeb",
+            how="anti",
+        )
+
+    def realize_non_exact_ceeb(self) -> pl.DataFrame:
+        if not hasattr(self, "non_exact_ceeb_pl"):
+            self.non_exact_ceeb_pl = self.non_exact_ceeb.pl()
+
+        return self.non_exact_ceeb_pl
+
+    def create_non_exact_multicampus(self):
+        query = (
+            self.duck.table("ipeds_hd")
+            .join(
+                self.exact_matches.filter(
+                    "multicampus or multicampus is null"
+                ),
+                condition="ipeds",
+                how="anti",
+            )
+            .sql_query()
+        )
+
+        create_table_query(self.duck, "non_exact_multicampus", query)
+
+    def levenshtein_ratio(self, row: dict[str, Any]) -> float:
+        """
+        Levenshtein ratio by searching over the four combinations of the two
+        names and appending or not appending the city, taking the maximum
+        ratio.
+        """
+
+        name_name = Levenshtein.ratio(row["search_name"], row["name"])
+        name_city = Levenshtein.ratio(row["search_name"], row["name_city"])
+        city_name = Levenshtein.ratio(row["search_name_city"], row["name"])
+        city_city = Levenshtein.ratio(
+            row["search_name_city"], row["name_city"]
+        )
+
+        return max(name_name, name_city, city_name, city_city)
+
+    def fuzz_ratio(self, row: dict[str, Any]) -> float:
+        """
+        Fuzz ratio by searching over the four combinations of the two
+        names and appending or not appending the city, taking the maximum
+        ratio.
+        """
+
+        name_name = fuzz.token_sort_ratio(  # type: ignore
+            row["search_name"], row["name"]
+        )
+        name_city = fuzz.token_sort_ratio(  # type: ignore
+            row["search_name"], row["name_city"]
+        )
+        city_name = fuzz.token_sort_ratio(  # type: ignore
+            row["search_name_city"], row["name"]
+        )
+        city_city = fuzz.token_sort_ratio(  # type: ignore
+            row["search_name_city"], row["name_city"]
+        )
+
+        return max(name_name, name_city, city_name, city_city) / 100
+
+    def fuzzy_distance(self):
+        fuzzy_matches = (  # noqa: F841 # type: ignore
+            self.bm25_matches.with_columns(
+                search_name_city=pl.col("search_name") + " " + pl.col("city"),
+                name_city=pl.col("name") + " " + pl.col("city"),
+            )
+            .with_columns(
+                similarity_ratio=pl.struct(pl.all()).map_elements(
+                    self.levenshtein_ratio,
+                    return_dtype=pl.Float64,
+                ),
+                fuzz_ratio=pl.struct(pl.all()).map_elements(
+                    self.fuzz_ratio, return_dtype=pl.Float64
+                ),
+            )
+            .sort("similarity_ratio")
+            .drop("search_name_city", "name_city")
+            .filter(
+                (
+                    (pl.col("match_score") > 8)
+                    | (pl.col("similarity_ratio") > 0.9)
+                    | (pl.col("fuzz_ratio") > 0.95)
+                )
+                & (pl.col("match_score") > 4)
+            )
+            .sort(
+                by=["ipeds", "match_score", "similarity_ratio"],
+                descending=[False, True, True],
+            )
+            .group_by("ipeds")
+            .first()
+        )
+
         duck.execute(
-            f"ATTACH IF NOT EXISTS '{os.path.join('clean-data', file)}'"
+            "create or replace table fuzzy_matches as (from fuzzy_matches)"
         )
 
-create_school_tables(duck)
+        self.fuzzy_matches = self.duck.table("fuzzy_matches")
 
-# exact matches
-exact_matches = duck.sql(
-    "select * "
-    "from ipeds_hd a "
-    "inner join ceeb_university b "
-    "on (lower(a.name) = lower(b.name) and a.state = b.state)"
-)
+    def write_crosswalk(self):
+        def cols(const: str):
+            return [
+                duckdb.ColumnExpression("ceeb"),
+                duckdb.ColumnExpression("ipeds"),
+                duckdb.ColumnExpression("state"),
+                duckdb.ConstantExpression(const).alias("method"),
+            ]
 
-# inner join match quality
-n_ipeds = len(duck.sql("from ipeds_hd").pl())
-n_ceebs = len(duck.sql("from ceeb_university").pl())
-n_exact = len(exact_matches.pl())
-print(n_exact / min(n_ipeds, n_ceebs))
+        # these are all used implicitly
+        exact = self.exact_matches.select(*cols("exact"))  # type: ignore  # noqa: F841
+        fuzzy = self.fuzzy_matches.select(*cols("fuzzy"))  # type: ignore  # noqa: F841
 
-# There are fewer university CEEB codes than there are IPEDS codes. That gives
-# us a decent first pass at matches. There are also only a few duplicates and
-# this stems from having some duplicate values in the IPEDS data to begin.
+        ceeb = self.duck.table("ceeb_university")  # type: ignore  # noqa: F841
+        hd = self.duck.table("ipeds_hd")  # type: ignore  # noqa: F841
+        nsc = self.duck.table("nsc_university")  # type: ignore  # noqa: F841
 
-print(f"Number of Exact Matches by Name and State: {n_exact}")
-print(
-    f"Number of Distinct Exact Matches: {len(exact_matches.select('name', 'state').distinct().pl())}"
-)
-print(
-    f"Number of Distinct Exact Names: {len(exact_matches.select('name').distinct().pl())}"
-)
-
-exact_matches_collected = exact_matches.pl()
-
-# For now return only the exact matches
-
-exact_matches_cleaned = duck.sql(
-    """
-    select 
-        method: 'exact',
-        ceeb,
-        ipeds,
-        ceeb_name,
-        ipeds_name,
-        edition,
-        multicampus,
-        city,
-        county_name,
-        zip,
-        state,
-        state_abbr,
-        state_fips,
-        fips,
-        latitude,
-        longitude
-    from exact_matches
-    order by ceeb
-    """
-)
-
-
-# 6830 rows
-ipeds_hd = duck.sql("from ipeds_hd")
-non_exact_ipeds = ipeds_hd.join(
-    exact_matches,
-    condition=f"lower({exact_matches.alias}.name) = lower({ipeds_hd.alias}.name) and {exact_matches.alias}.state = {ipeds_hd.alias}.state",
-    how="anti",
-)
-print(len(non_exact_ipeds))
-
-# 979 rows
-ceeb_university = duck.sql("from ceeb_university")
-non_exact_ceeb = ceeb_university.join(
-    exact_matches,
-    condition=f"lower({exact_matches.alias}.name) = lower({ceeb_university.alias}.name) and {exact_matches.alias}.state = {ceeb_university.alias}.state",
-    how="anti",
-)
-print(len(non_exact_ceeb))
-
-duck.execute(
-    f"create or replace table non_exact_ipeds as ({non_exact_ipeds.sql_query()})"
-)
-duck.execute(
-    f"create or replace table non_exact_ceeb as ({non_exact_ceeb.sql_query()})"
-)
-
-
-# exact matches that shouldn't have branch campuses.
-exact_no_multi = exact_matches_cleaned.pl().filter(~pl.col("multicampus"))
-exact_multi = exact_matches_cleaned.pl().filter(
-    pl.col("multicampus") | pl.col("multicampus").is_null()
-)
-
-# potential multicampus IPEDS codes.
-duck.execute(
-    "create or replace table ipeds_multi_non_exact as (from ipeds_hd anti join exact_no_multi using (ipeds))"
-)
-
-# create the index
-duck.execute(
-    "PRAGMA create_fts_index("
-    # "    non_exact_ipeds, "
-    # "    ipeds_hd, "
-    "    ipeds_multi_non_exact, "
-    "    ipeds, "
-    "    name, "
-    "    city, "
-    "    stemmer = 'none', "
-    "    stopwords = 'none', "
-    "    overwrite = 1"
-    ")"
-)
-
-
-# match against it
-non_exact_ceeb_collected = non_exact_ceeb.pl()
-
-result: List[pl.DataFrame] = []
-
-for row in non_exact_ceeb_collected.iter_rows(named=True):
-    print(row)
-
-    result.append(
-        search_index(
-            duck, row["name"], row["state"], row["ceeb"], limit=10
-        ).select(
-            "match_score",
-            "ceeb",
-            "search_name",
-            "ipeds",
-            "name",
-            "city",
-            "state",
-            "edition",
+        crosswalk = self.duck.sql(
+            """
+            SELECT 
+                method: COALESCE(method, 'no-ceeb-match'),
+                ceeb,
+                ipeds,
+                nsc,
+                nsc_full,
+                ceeb_name,
+                ipeds_name,
+                nsc_name: n.name,
+                h.edition,
+                multicampus,
+                h.city,
+                county_name, 
+                zip,
+                state,
+                state_abbr,
+                state_fips,
+                fips,
+                latitude,
+                longitude
+            FROM ((FROM fuzzy) UNION ALL BY NAME (FROM exact))
+            FULL JOIN ceeb USING (ceeb, state)
+            FULL JOIN hd h USING (ipeds, state)
+            FULL JOIN nsc n USING (ipeds)
+            """
         )
-    )
 
-# inspect matches
-
-result_df = pl.concat(result).sort("match_score", descending=True).sort("name")
-
-
-def levenshtein_distance_names(row: dict[str, Any]) -> float:
-    """
-    Searches over the four combinations of the two names and appending or not
-    appending the city.
-    """
-    name_name = Levenshtein.ratio(row["search_name"], row["name"])
-    name_city = Levenshtein.ratio(row["search_name"], row["name_city"])
-    city_name = Levenshtein.ratio(row["search_name_city"], row["name"])
-    city_city = Levenshtein.ratio(row["search_name_city"], row["name_city"])
-
-    return max(name_name, name_city, city_name, city_city)
-
-
-def fuzz_ratio(row: dict[str, Any]) -> float:
-    name_name = fuzz.token_sort_ratio(row["search_name"], row["name"])
-    name_city = fuzz.token_sort_ratio(row["search_name"], row["name_city"])
-    city_name = fuzz.token_sort_ratio(row["search_name_city"], row["name"])
-    city_city = fuzz.token_sort_ratio(
-        row["search_name_city"], row["name_city"]
-    )
-
-    return max(name_name, name_city, city_name, city_city) / 100
-
-
-result_distance = (
-    result_df.with_columns(
-        search_name_city=pl.col("search_name") + " " + pl.col("city"),
-        name_city=pl.col("name") + " " + pl.col("city"),
-    )
-    .with_columns(
-        similarity_ratio=pl.struct(pl.all()).map_elements(
-            levenshtein_distance_names, return_dtype=pl.Float64
-        ),
-        fuzz_ratio=pl.struct(pl.all()).map_elements(
-            fuzz_ratio, return_dtype=pl.Float64
-        ),
-    )
-    .sort("similarity_ratio")
-).drop("search_name_city", "name_city")
-
-fuzzy_matches = result_distance.filter(
-    (
-        (pl.col("match_score") > 8)
-        | (pl.col("similarity_ratio") > 0.9)
-        | (pl.col("fuzz_ratio") > 0.95)
-    )
-    & (pl.col("match_score") > 4)
-).sort(
-    by=["ipeds", "match_score", "similarity_ratio"],
-    descending=[False, True, True],
-)
-
-best_fuzzy_match = fuzzy_matches.group_by("ipeds").first()
-
-# Collecting the exact and fuzzy matches
-
-# The idea is to narrow this down to the IDs and then join it with the full
-# IPEDS, CEEB, and NSC tables.
-
-duck.execute(
-    """
-    CREATE OR REPLACE TABLE university_crosswalk AS (
-        SELECT 
-            method,
-            ceeb,
-            ipeds,
-            nsc,
-            nsc_full,
-            ceeb_name,
-            ipeds_name,
-            nsc_name: n.name,
-            h.edition,
-            multicampus,
-            h.city,
-            county_name, 
-            zip,
-            state,
-            state_abbr,
-            state_fips,
-            fips,
-            latitude,
-            longitude
-        FROM (
-            (
-                SELECT 
-                    method: 'fuzzy',
-                    ceeb, 
-                    ipeds, 
-                    state
-                FROM best_fuzzy_match
-            )
-            UNION ALL BY NAME 
-            (
-                SELECT 
-                    method: 'exact',
-                    ceeb, 
-                    ipeds, 
-                    state
-                FROM exact_matches
-            )
+        create_table_query(
+            duck=self.duck,
+            table_name="university_crosswalk",
+            query=crosswalk.sql_query(),
         )
-        FULL JOIN ceeb_university USING (ceeb, state)
-        FULL JOIN ipeds_hd h USING (ipeds, state)
-        FULL JOIN nsc_university n USING (ipeds)
-        ORDER BY ipeds
-    )
-    """
-)
 
 
-duck.close()
+if __name__ == "__main__":
+    with duckdb.connect(  # type: ignore
+        os.path.join("crosswalking", "universities.duckdb")
+    ) as duck:
+        duckdb.DuckDBPyConnection
+
+        univ = UniversityCrosswalk(
+            duck=duck,
+            clean_data_dir="clean-data",
+            crosswalk_sql_dir=os.path.join("crosswalking", "sql"),
+        )
+
+        univ.process()

@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import duckdb
 import polars as pl
@@ -133,14 +134,108 @@ def attach_db_dir(duck: duckdb.DuckDBPyConnection, dir: str) -> pl.DataFrame:
             that they are all there.
     """
     for file in os.listdir(dir):
-        if file.endswith(".duckdb"):
-            duck.execute(f"ATTACH IF NOT EXISTS '{os.path.join(dir, file)}'")
+        attach_db(duck, os.path.join(dir, file))
 
     return duck.sql(
         "SELECT database_name, path, readonly "
         "FROM duckdb_databases() "
         "WHERE NOT internal"
     ).pl()
+
+
+def attach_db(duck: duckdb.DuckDBPyConnection, file: str):
+    """Attach a DuckDB Database File
+
+    The database attaches according to the filename.
+
+    Args:
+        duck (duckdb.DuckDBPyConnection): DuckDB connection.
+        file (str): Path to the file.
+    """
+
+    if file.endswith(".duckdb"):
+        duck.execute(f"ATTACH IF NOT EXISTS '{file}'")
+
+
+def create_fts_index(
+    duck: duckdb.DuckDBPyConnection,
+    input_table: str,
+    input_id: str,
+    input_values: List[str],
+    stemmer: str = "porter",
+    stopwords: str = "english",
+    ignore: str = "(\\.|[^a-z])+",
+    strip_accents: bool | int = 1,
+    lower: bool | int = 1,
+    overwrite: bool | int = 0,
+):
+    # duck.execute(
+    #     """
+    #     PRAGMA create_fts_index(
+    #         input_table := $input_table,
+    #         input_id := $input_id,
+    #         $input_values,
+    #         stemmer := $stemmer,
+    #         stopwords := $stopwords,
+    #         ignore := $ignore,
+    #         strip_accents := $strip_accents,
+    #         lower := $lower,
+    #         overwrite := $overwrite
+    #     )
+    #     """,
+    #     parameters={
+    #         "input_table": input_table,
+    #         "input_id": input_id,
+    #         "input_values": ", ".join(input_values),
+    #         "stemmer": stemmer,
+    #         "stopwords": stopwords,
+    #         "ignore": ignore,
+    #         "strip_accents": strip_accents,
+    #         "lower": lower,
+    #         "overwrite": overwrite,
+    #     },
+    # )
+
+    sql = f"""PRAGMA create_fts_index(
+        {input_table},
+        {input_id},
+        {", ".join(input_values)},
+        stemmer = '{stemmer}',
+        stopwords = '{stopwords}',
+        ignore = '{ignore}',
+        strip_accents = {strip_accents},
+        lower = {lower},
+        overwrite = {overwrite}
+    )"""
+
+    duck.execute(sql)
+
+
+def create_table_query(
+    duck: duckdb.DuckDBPyConnection, table_name: str, query: str
+):
+    """Create a DuckDB Table From a SQL File
+
+    Args:
+        duck (duckdb.DuckDBPyConnection): DuckDB connection.
+        table_name (str): The name of the table to be created.
+        query (str): A SQL query stored as a string.
+    """
+    duck.sql(f"CREATE OR REPLACE TABLE {table_name} AS ({query})")
+
+
+def create_table_file(
+    duck: duckdb.DuckDBPyConnection, table_name: str, path: str
+):
+    """Create a DuckDB Table From a SQL File
+
+    Args:
+        duck (duckdb.DuckDBPyConnection): DuckDB connection.
+        table_name (str): The name of the table to be created.
+        path (str): The path to the SQL file.
+    """
+    with open(path) as f:
+        duck.sql(f"CREATE OR REPLACE TABLE {table_name} AS ({f.read()})")
 
 
 if __name__ == "__main__":
