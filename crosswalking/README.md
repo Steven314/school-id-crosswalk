@@ -58,7 +58,7 @@ Many older institutions are available in the IPEDS data, but not in the CEEB dat
 ### Adjustments
 
 Before any adjustments the exact match rate is about 55% of CEEB codes.
-After the below adjustments the rate is just above 75% of included CEEB codes.
+After the below adjustments the rate is almost 76% of included CEEB codes.
 
 #### General
 
@@ -96,8 +96,12 @@ By increasing the number of exact matches through basic changes, this reduces th
   will be unified as `ATI`. (I don't think this actually helps anything.)
 - In IPEDS name `Arizona College of Nursing Tucson` its CEEB counterpart has a
   typo. (This creates one additional exact match.)
-- For some reason the California State University CEEB names has `Apply` on the
-  end of it. That was removed.
+- For some reason the California State University CEEB names have `Apply` on the
+  end of them. That was removed.
+- Texas A&M University's main campus has the city attached in the IPEDS data,
+  but not the CEEB data. This causes mismatches with the branch campuses. The
+  main campus had `College Station` attached to its CEEB name. (This causes most
+  of the Texas A&M matches to be exact instead incorrect fuzzy matches.)
 
 ### Exclusions
 
@@ -106,8 +110,9 @@ There are a lot of CEEB codes that aren't useful for matching with institutions.
 - The CEEB data includes many non-educational entities. That being
   politicians, individuals, and companies. These should be excluded since they
   would not have a matching IPEDS or NCES code. There aren't a vast number of
-  these so a negative filter is simple enough to isolate them. Then flip it to a
-  positive filter to remove them. (There was a little over 200 of these.)
+  these so a negative filter is simple enough to isolate most of them. Then flip
+  it to a positive filter to remove them. (There was a little over 200 of
+  these.)
 - Naval and Navy recruiting doesn't need to be included.
 - Some institutions offer an 'Upward Bound Program'. I'm electing to exclude
   these since they are an assistance program and not an institution themselves.
@@ -130,3 +135,63 @@ Taking all the IPEDS names allows for CEEB codes with correspond to part of a un
 The matching was filtered by state so the results are guaranteed to in the correct state.
 The city was also indexed alongside the IPEDS name if there isn't a match it is at least more likely to be in the right city.
 
+Between exact matching and conservative fuzzy matching:
+
+```sql
+WITH counts AS (
+  SELECT 
+    ipeds:      count(ipeds) FILTER(ipeds IS NOT NULL AND ipeds_name IS NOT NULL),
+    nsc:        count(nsc)   FILTER(nsc   IS NOT NULL AND nsc_name   IS NOT NULL),
+    ceeb:       count(ceeb)  FILTER(ceeb  IS NOT NULL AND ceeb_name  IS NOT NULL),
+    ceeb_ipeds: count(ceeb)  FILTER(ipeds IS NOT NULL AND ipeds_name IS NOT NULL),
+    ceeb_nsc:   count(ceeb)  FILTER(nsc   IS NOT NULL AND nsc_name   IS NOT NULL),
+    ipeds_ceeb: count(ipeds) FILTER(ceeb  IS NOT NULL AND ceeb_name  IS NOT NULL),
+    ipeds_nsc:  count(ipeds) FILTER(nsc   IS NOT NULL AND nsc_name   IS NOT NULL),
+    nsc_ipeds:  count(nsc)   FILTER(ipeds IS NOT NULL AND ipeds_name IS NOT NULL),
+    nsc_ceeb:   count(nsc)   FILTER(ceeb  IS NOT NULL AND ceeb_name  IS NOT NULL)
+  FROM university_crosswalk
+),
+percentages AS (
+  SELECT 
+    ipeds_by_ceeb: round(ceeb_ipeds / ipeds, 4) * 100 || '%',
+    ipeds_by_nsc:  round(nsc_ipeds  / ipeds, 4) * 100 || '%',
+    ceeb_by_ipeds: round(ipeds_ceeb / ceeb,  4) * 100 || '%',
+    ceeb_by_nsc:   round(nsc_ceeb   / ceeb,  4) * 100 || '%',
+    nsc_by_ipeds:  round(ipeds_nsc  / nsc,   4) * 100 || '%',
+    nsc_by_ceeb:   round(ceeb_nsc   / nsc,   4) * 100 || '%'
+  FROM counts
+)
+UNPIVOT percentages ON COLUMNS(*)
+```
+
+| ID Pairing | Coverage | Note |
+|:---:|:---:|---|
+| IPEDS by CEEB | 32.22% |  |
+| IPEDS by NSC  | 74.13% | The IPEDS set is larger than the NSC set. |
+| CEEB by IPEDS | 81.19% | CEEB is the smallest set, so when this reaches 100%, that is the best that is possible. |
+| CEEB by NSC   | 77.28% |  |
+| NSC by IPEDS  | 99.99% | This is high because the NSC table already includes IPEDS codes. |
+| NSC by CEEB   | 39.94% |  |
+
+Not all of these are confirmed correct.
+There are some known errors.
+
+That is also treating many-to-many connections as okay.
+
+#### Wrong Matches To Be Fixed
+
+These have a high BM25 score, but are definitely wrong.
+
+- University of Wisconsin Fond du Lac
+  - `CEEB`: `1942`
+  - Merged into University of Wisconsin Oshkosh in 2018 ([Wikipedia](https://en.wikipedia.org/wiki/University_of_Wisconsin%E2%80%93Oshkosh,_Fond_du_Lac_Campus)).
+- Keiser Career College Port Saint Lucie
+  - `CEEB`: `5355`
+  - Renamed to Southeastern College in 2015 ([sec.edu/about](https://www.sec.edu/about/)).
+- Keiser University Pembroke Pines
+  - `CEEB`: `7760`
+  - The relationship between Keiser University and Keiser Career College are
+    confusing. Their histories seem to overlap, and yet they exist as two
+    different institutions today.
+
+I'm sure there are plenty more.

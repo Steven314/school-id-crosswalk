@@ -1,6 +1,11 @@
 WITH a AS (
     SELECT 
         ipeds: unitid::VARCHAR,
+        opeid: opeid
+          .replace('"','')
+          .nullif('-2')
+          .nullif(' ')
+          .nullif(''),
         edition,
         multicampus: case f1systyp 
           when 1 then true 
@@ -9,7 +14,7 @@ WITH a AS (
         end,
         ipeds_name: instnm,
         name: instnm
-            .replace( '"', '')
+            .replace('"', '')
             .regexp_replace('A & M|A&M|Agricultural (and|&) Mechanical', 'A&M')
             .regexp_replace(' and ', ' & ', 'g')
             .regexp_replace('St\.? ', 'Saint ', 'g')

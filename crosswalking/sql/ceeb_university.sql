@@ -2,6 +2,7 @@ SELECT
     ceeb: ceeb_code,
     ceeb_name: name,
     name: name
+        -- general adjustments
         .regexp_replace('A & M|A&M|Agricultural (and|&) Mechanical', 'A&M')
         .regexp_replace(' and ', ' & ', 'g')
         .regexp_replace('St\.? ', 'Saint ', 'g')
@@ -10,10 +11,16 @@ SELECT
         .regexp_replace(': |-', ' ', 'g')
         .regexp_replace('\.', '', 'g')
         .regexp_replace('\\|\/', ' ', 'g')
+        -- specific adjustments
         .regexp_replace('^UW ', 'University of Wisconsin ')
         .regexp_replace('City University of New York', 'CUNY')
         .regexp_replace('Advanced Technical Institute', 'ATI')
         .regexp_replace('Tuscon', 'Tucson')
+        .regexp_replace(
+          '^Texas A&M University$', 
+          'Texas A&M University College Station'
+        )
+        -- additional general adjustments
         .regexp_replace('Main Campus', '')
         .regexp_replace('Campus', '')
         .regexp_replace('Apply$', '')
