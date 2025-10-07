@@ -34,7 +34,7 @@ build_nces:
 
 # NSC
 .PHONY: build_nsc
-build_ncs:
+build_nsc:
 	python -m data_collection.nsc
 
 # CEEB
