@@ -122,6 +122,15 @@ def table_exists(duck: duckdb.DuckDBPyConnection, table_name: str) -> bool:
     )
 
 
+def view_exists(duck: duckdb.DuckDBPyConnection, view_name: str) -> bool:
+    return bool(
+        duck.sql(
+            "select * from duckdb_views() where view_name = ?",
+            params=[view_name],
+        ).shape[0]
+    )
+
+
 def attach_db_dir(duck: duckdb.DuckDBPyConnection, dir: str) -> pl.DataFrame:
     """Attach all DuckDB files in a directory.
 
@@ -234,8 +243,24 @@ def create_table_file(
         table_name (str): The name of the table to be created.
         path (str): The path to the SQL file.
     """
+
     with open(path) as f:
         duck.sql(f"CREATE OR REPLACE TABLE {table_name} AS ({f.read()})")
+
+
+def create_view_file(
+    duck: duckdb.DuckDBPyConnection, view_name: str, path: str
+):
+    """Create a DuckDB View From a SQL File
+
+    Args:
+        duck (duckdb.DuckDBPyConnection): DuckDB connection.
+        view_name (str): The name of the view to be created.
+        path (str): The path to the SQL file.
+    """
+
+    with open(path) as f:
+        duck.sql(f"CREATE OR REPLACE VIEW {view_name} AS ({f.read()})")
 
 
 if __name__ == "__main__":
