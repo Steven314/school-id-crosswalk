@@ -1,7 +1,7 @@
-import duckdb
 import polars as pl
 
 from utils.ceeb import CEEB_NCAA, CEEBCollege, CEEBHighSchool
+from utils.duckdb import DuckDB
 
 # The CEEB codes for colleges/universities are four digits. The only place I
 # could find them is in a PDF from the College Board.
@@ -21,11 +21,7 @@ if __name__ == "__main__":
     ncaa_hs: bool = True
 
     if college:
-        with duckdb.connect(  # type: ignore
-            "clean-data/ceeb.duckdb"
-        ) as duck:
-            duckdb.DuckDBPyConnection
-
+        with DuckDB("clean-data/ceeb.duckdb") as duck:
             ceeb = CEEBCollege()
             ceeb.download()
 
@@ -36,18 +32,12 @@ if __name__ == "__main__":
         with CEEBHighSchool(timeout_limit=30) as ceeb:
             data = ceeb.process()
 
-            with duckdb.connect(  # type: ignore
-                "clean-data/ceeb.duckdb"
-            ) as duck:
-                duckdb.DuckDBPyConnection
-
+            with DuckDB("clean-data/ceeb.duckdb") as duck:
                 ceeb.append_to_duckdb(duck, data)
 
     if ncaa_hs:
         # This needs to the above high school section done.
-        with duckdb.connect("clean-data/ceeb-temp.duckdb") as duck:  # type: ignore
-            duckdb.DuckDBPyConnection
-
+        with DuckDB("clean-data/ceeb-temp.duckdb") as duck:
             ceeb_codes = (
                 duck.sql(
                     "select distinct ceeb_code "
@@ -84,9 +74,5 @@ if __name__ == "__main__":
 
             print(big_data)
 
-            with duckdb.connect(  # type: ignore
-                "clean-data/ceeb-temp.duckdb"
-            ) as duck:
-                duckdb.DuckDBPyConnection
-
+            with DuckDB("clean-data/ceeb-temp.duckdb") as duck:
                 ceeb.append_to_duckdb(duck, big_data)

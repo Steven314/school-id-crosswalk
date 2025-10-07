@@ -1,7 +1,5 @@
-import duckdb
-
 from utils.census import Census
-from utils.duckdb import install_and_load
+from utils.duckdb import DuckDB
 
 
 class CountyData(Census):
@@ -22,12 +20,8 @@ if __name__ == "__main__":
 
     county = CountyData(year)
 
-    with duckdb.connect(  # type: ignore
-        "clean-data/geography.duckdb"
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
-        install_and_load(duck, "spatial", True)
+    with DuckDB("clean-data/geography.duckdb") as duck:
+        duck.install_and_load_extension("spatial", True)
 
         county.download()
         county.extract()

@@ -1,6 +1,4 @@
-import duckdb
-
-from utils.duckdb import install_and_load
+from utils.duckdb import DuckDB
 from utils.nces import NCES
 
 # The Department of Education publishes a shapefile and data for each public,
@@ -14,12 +12,8 @@ if __name__ == "__main__":
 
     schools = [NCES(year, school) for school in school_types]
 
-    with duckdb.connect(  # type: ignore
-        "clean-data/nces.duckdb"
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
-        install_and_load(duck, "excel", use_https=True)
+    with DuckDB("clean-data/nces.duckdb") as duck:
+        duck.install_and_load_extension("excel", use_https=True)
 
         for school in schools:
             school.download()

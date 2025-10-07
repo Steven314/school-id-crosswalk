@@ -1,9 +1,7 @@
 import os
 
-import duckdb
-
 from utils.conditionals import conditional_download, conditional_extract
-from utils.duckdb import table_exists
+from utils.duckdb import DuckDB
 
 
 class NCES:
@@ -76,11 +74,11 @@ class NCES:
             self.excel_file,
         )
 
-    def append_to_duckdb(self, duck_con: duckdb.DuckDBPyConnection):
+    def append_to_duckdb(self, duck: DuckDB):
         """Append the Data to DuckDB
 
         Args:
-            duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
+            duck (DuckDB): A DuckDB object.
         """
 
         sql = (
@@ -101,15 +99,15 @@ class NCES:
             raise FileNotFoundError("The Excel file was not found.")
 
         # if the table does not exist at all, add this segment to the table.
-        if not table_exists(duck_con, self.table_name):
-            duck_con.sql(sql).create(self.table_name)
+        if not duck.table_exists(self.table_name):
+            duck.sql(sql).create(self.table_name)
         else:
             current_rows_present = (
-                duck_con.table(self.table_name)
+                duck.table(self.table_name)
                 .filter(f"edition = {self.year}")
                 .shape[0]
             )
 
             # if not present, insert it.
             if current_rows_present == 0:
-                duck_con.execute(f"INSERT INTO {self.table_name} " + sql)
+                duck.execute(f"INSERT INTO {self.table_name} " + sql)

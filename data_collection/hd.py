@@ -1,9 +1,8 @@
 import os
 from typing import List
 
-import duckdb
-
 from utils.ipeds import IPEDS
+from utils.duckdb import DuckDB
 
 
 class HD:
@@ -26,11 +25,11 @@ class HD:
         for x in self.ipeds:
             x.extract()
 
-    def append_to_duckdb(self, duck_con: duckdb.DuckDBPyConnection) -> None:
+    def append_to_duckdb(self, duck: DuckDB) -> None:
         """Append the Data to DuckDB
 
         Args:
-            duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
+            duck (DuckDB): A DuckDB object.
         """
 
         # The some of the columns have extra spaces which needlessly increases
@@ -56,9 +55,7 @@ class HD:
         if not os.path.exists(self.extraction_location):
             raise FileNotFoundError("The folder of CSVs was not found.")
 
-        duck_con.execute(
-            f"CREATE OR REPLACE TABLE {self.combined_table_name} AS ({sql})"
-        )
+        duck.create_table_query(self.combined_table_name, sql)
 
         return None
 
@@ -71,9 +68,5 @@ if __name__ == "__main__":
     hd.download()
     hd.extract()
 
-    with duckdb.connect(  # type: ignore
-        "clean-data/ipeds.duckdb"
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
+    with DuckDB("clean-data/ipeds.duckdb") as duck:
         hd.append_to_duckdb(duck)

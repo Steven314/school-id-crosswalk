@@ -1,7 +1,5 @@
-import duckdb
-
 from utils.census import Census
-from utils.duckdb import install_and_load
+from utils.duckdb import DuckDB
 
 
 class ZIPCodeData(Census):
@@ -18,12 +16,8 @@ if __name__ == "__main__":
 
     zips = ZIPCodeData(year)
 
-    with duckdb.connect(  # type: ignore
-        "clean-data/geography.duckdb"
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
-        install_and_load(duck, "spatial", True)
+    with DuckDB("clean-data/geography.duckdb") as duck:
+        duck.install_and_load_extension("spatial", True)
 
         zips.download()
         zips.extract()

@@ -6,20 +6,13 @@ import Levenshtein
 import polars as pl
 from thefuzz import fuzz  # type: ignore
 
-from utils.duckdb import (
-    attach_db,
-    view_exists,
-    create_fts_index,
-    create_table_file,
-    create_table_query,
-    create_view_file,
-)
+from utils.duckdb import DuckDB
 
 
 class UniversityCrosswalk:
     def __init__(
         self,
-        duck: duckdb.DuckDBPyConnection,
+        duck: DuckDB,
         clean_data_dir: str,
         crosswalk_sql_dir: str,
     ):
@@ -71,15 +64,14 @@ class UniversityCrosswalk:
 
     def attach_dbs(self):
         for path in self.db_paths:
-            attach_db(self.duck, path)
+            self.duck.attach_db(path)
 
     def create_university_tables(self):
         for file, name in zip(self.sql_files, self.table_names):
-            create_table_file(self.duck, name, file)
+            self.duck.create_table_file(name, file)
 
     def build_index(self):
-        create_fts_index(
-            self.duck,
+        self.duck.create_fts_index(
             input_table="non_exact_multicampus",
             input_id="ipeds",
             input_values=["name", "city"],
@@ -224,7 +216,7 @@ class UniversityCrosswalk:
             .sql_query()
         )
 
-        create_table_query(self.duck, "non_exact_multicampus", query)
+        self.duck.create_table_query("non_exact_multicampus", query)
 
     def levenshtein_ratio(self, row: dict[str, Any]) -> float:
         """
@@ -297,7 +289,7 @@ class UniversityCrosswalk:
             .first()
         )
 
-        duck.execute(
+        self.duck.execute(
             "create or replace table fuzzy_matches as (from fuzzy_matches)"
         )
 
@@ -320,8 +312,7 @@ class UniversityCrosswalk:
         hd = self.duck.table("ipeds_hd")  # type: ignore  # noqa: F841
         nsc = self.duck.table("nsc_university")  # type: ignore  # noqa: F841
 
-        crosswalk = self.duck.sql(
-            """
+        crosswalk = """
             SELECT 
                 method: COALESCE(method, 'no-ceeb-match'),
                 ceeb,
@@ -346,30 +337,25 @@ class UniversityCrosswalk:
             FULL JOIN ceeb USING (ceeb, state)
             FULL JOIN hd h USING (ipeds, state)
             FULL JOIN nsc n USING (ipeds)
-            """
-        )
+        """
 
-        create_table_query(
-            duck=self.duck,
-            table_name="university_crosswalk",
-            query=crosswalk.sql_query(),
+        # Calling the relations inside the function wrapper doesn't work. It's
+        # a scope issue, so you have to call the underlying function directly.
+        self.duck.duck.execute(
+            f"create or replace table university_crosswalk as ({crosswalk})"
         )
 
     def report_coverage(self):
         view_name = "university_coverage"
 
-        if not view_exists(self.duck, view_name):
-            create_view_file(self.duck, view_name, self.reporting_sql)
+        if not self.duck.view_exists(view_name):
+            self.duck.create_view_file(view_name, self.reporting_sql)
 
         return self.duck.sql("from university_coverage").pl()
 
 
 if __name__ == "__main__":
-    with duckdb.connect(  # type: ignore
-        os.path.join("crosswalking", "universities.duckdb")
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
+    with DuckDB(os.path.join("crosswalking", "universities.duckdb")) as duck:
         univ = UniversityCrosswalk(
             duck=duck,
             clean_data_dir="clean-data",

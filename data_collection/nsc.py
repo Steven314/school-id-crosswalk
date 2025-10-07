@@ -1,9 +1,7 @@
 import os
 
-import duckdb
-
 from utils.conditionals import conditional_download
-from utils.duckdb import install_and_load
+from utils.duckdb import DuckDB
 
 # The National Student Clearinghouse provides a fairly recent crosswalk between
 # NSC codes and the UNITIDs used in IPEDS data.
@@ -29,11 +27,11 @@ class NSC:
     def download(self):
         conditional_download(self.url, self.raw_file_loc)
 
-    def append_to_duckdb(self, duck_con: duckdb.DuckDBPyConnection) -> None:
+    def append_to_duckdb(self, duck: DuckDB) -> None:
         """Append the Data to DuckDB
 
         Args:
-            duck_con (duckdb.DuckDBPyConnection): The DuckDB connection.
+            duck (DuckDB): A DuckDB object.
         """
 
         sql = (
@@ -46,16 +44,12 @@ class NSC:
         if not os.path.exists(self.raw_file_loc):
             raise FileNotFoundError("The Excel file was not found.")
 
-        duck_con.execute(f"CREATE OR REPLACE TABLE 'nsc_to_ipeds' AS ({sql})")
+        duck.create_table_query("nsc_to_ipeds", sql)
 
 
 if __name__ == "__main__":
-    with duckdb.connect(  # type: ignore
-        "clean-data/ncs.duckdb"
-    ) as duck:
-        duckdb.DuckDBPyConnection
-
-        install_and_load(duck, "excel", use_https=True)
+    with DuckDB("clean-data/ncs.duckdb") as duck:
+        duck.install_and_load_extension("excel", use_https=True)
 
         nsc = NSC()
         nsc.download()

@@ -5,7 +5,6 @@ import time
 from io import StringIO
 from typing import List
 
-import duckdb
 import pdfplumber
 import polars as pl
 from bs4 import BeautifulSoup
@@ -18,6 +17,7 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
 
 from utils.conditionals import conditional_download
+from utils.duckdb import DuckDB
 
 os.environ["DC_STATEHOOD"] = "1"
 import us  # type: ignore
@@ -93,15 +93,14 @@ class CEEBCollege:
 
         return data
 
-    def append_to_duckdb(
-        self, duck_con: duckdb.DuckDBPyConnection, data: pl.DataFrame
-    ):
+    def append_to_duckdb(self, duck: DuckDB, data: pl.DataFrame):
         # Data is used implicitly by DuckDB here.
 
         sql = "SELECT * FROM data"
 
-        duck_con.execute(
-            f"CREATE OR REPLACE TABLE {self.table_name} AS ({sql})"
+        # Because of a scope issue, the DuckDB wrapper must be bypassed.
+        duck.duck.execute(
+            f"create or replace table {self.table_name} as ({sql})"
         )
 
 
@@ -264,13 +263,12 @@ class CEEBHighSchool:
 
         return self.collect_data()
 
-    def append_to_duckdb(
-        self, duck_con: duckdb.DuckDBPyConnection, data: pl.DataFrame
-    ):
+    def append_to_duckdb(self, duck: DuckDB, data: pl.DataFrame):
         sql = "SELECT * FROM data"
 
-        duck_con.execute(
-            f"CREATE OR REPLACE TABLE {self.table_name} AS ({sql})"
+        # Because of a scope issue, the DuckDB wrapper must be bypassed.
+        duck.duck.execute(
+            f"create or replace table {self.table_name} as ({sql})"
         )
 
 
@@ -413,9 +411,10 @@ class CEEB_NCAA:
 
         return data
 
-    def append_to_duckdb(
-        self, duck: duckdb.DuckDBPyConnection, data: pl.DataFrame
-    ):
+    def append_to_duckdb(self, duck: DuckDB, data: pl.DataFrame):
         sql = "SELECT * FROM data"
 
-        duck.sql(f"CREATE OR REPLACE TABLE {self.table_name} AS ({sql})")
+        # Because of a scope issue, the DuckDB wrapper must be bypassed.
+        duck.duck.execute(
+            f"create or replace table {self.table_name} as ({sql})"
+        )
