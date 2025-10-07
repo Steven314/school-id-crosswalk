@@ -36,13 +36,12 @@ if __name__ == "__main__":
                 ceeb.append_to_duckdb(duck, data)
 
     if ncaa_hs:
-        # This needs to the above high school section done.
+        # This needs the above high school section done.
         with DuckDB("clean-data/ceeb-temp.duckdb") as duck:
             ceeb_codes = (
                 duck.sql(
-                    "select distinct ceeb_code "
-                    "from school "
-                    "order by ceeb_code "
+                    "select distinct ceeb_code from school order by ceeb_code "
+                    # "limit 46000"
                 )
                 .pl()["ceeb_code"]
                 .to_list()
@@ -51,6 +50,7 @@ if __name__ == "__main__":
         print(f"This will gather {len(ceeb_codes)} CEEB codes.")
 
         with CEEB_NCAA() as ceeb:
+            ceeb.check_ceeb_data_dir("extracted-zips/ceeb_ncaa")
             big_data = (
                 pl.from_dicts([ceeb.process(c) for c in ceeb_codes])
                 .with_columns(

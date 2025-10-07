@@ -381,8 +381,11 @@ class CEEB_NCAA:
     def return_to_search(self):
         self.driver.back()
 
+    def check_ceeb_data_dir(self, dir: str):
+        self.ceeb_files = os.listdir(dir)
+
     def check_ceeb_data(self, file: str) -> bool:
-        return os.path.exists(file)
+        return file in self.ceeb_files
 
     def load_ceeb_data(self, file: str) -> dict[str, str]:
         with open(file, "r") as f:
@@ -397,7 +400,7 @@ class CEEB_NCAA:
     def process(self, ceeb: str):
         file = os.path.join(self.storage_path, ceeb + ".json")
 
-        if not self.check_ceeb_data(file):
+        if not self.check_ceeb_data(ceeb + ".json"):
             # if the data is not known, download it.
             self.search_ceeb_code(ceeb)
 
