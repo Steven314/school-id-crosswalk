@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     if ncaa_hs:
         # This needs the above high school section done.
-        with DuckDB("clean-data/ceeb-temp.duckdb") as duck:
+        with DuckDB("clean-data/ceeb.duckdb") as duck:
             ceeb_codes = (
                 duck.sql(
                     "select distinct ceeb_code from school order by ceeb_code "
@@ -74,5 +74,5 @@ if __name__ == "__main__":
 
             print(big_data)
 
-            with DuckDB("clean-data/ceeb-temp.duckdb") as duck:
+            with DuckDB("clean-data/ceeb.duckdb") as duck:
                 ceeb.append_to_duckdb(duck, big_data)
