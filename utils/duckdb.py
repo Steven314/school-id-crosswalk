@@ -263,6 +263,10 @@ def create_view_file(
         duck.sql(f"CREATE OR REPLACE VIEW {view_name} AS ({f.read()})")
 
 
+def start_ui(duck: duckdb.DuckDBPyConnection):
+    duck.execute("call start_ui()")
+
+
 if __name__ == "__main__":
     with duckdb.connect() as duck:  # type: ignore
         install_and_load(duck, "spatial", use_https=True)
