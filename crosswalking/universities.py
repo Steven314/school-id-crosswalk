@@ -8,9 +8,11 @@ from thefuzz import fuzz  # type: ignore
 
 from utils.duckdb import (
     attach_db,
+    view_exists,
     create_fts_index,
     create_table_file,
     create_table_query,
+    create_view_file,
 )
 
 
@@ -29,6 +31,10 @@ class UniversityCrosswalk:
             os.path.join(crosswalk_sql_dir, file + ".sql")
             for file in self.sql_file_names
         ]
+
+        self.reporting_sql = os.path.join(
+            crosswalk_sql_dir, "university_coverage" + ".sql"
+        )
 
         # the tables to be created.
         self.table_names = ["ipeds_hd", "ceeb_university", "nsc_university"]
@@ -349,6 +355,14 @@ class UniversityCrosswalk:
             query=crosswalk.sql_query(),
         )
 
+    def report_coverage(self):
+        view_name = "university_coverage"
+
+        if not view_exists(self.duck, view_name):
+            create_view_file(self.duck, view_name, self.reporting_sql)
+
+        return self.duck.sql("from university_coverage").pl()
+
 
 if __name__ == "__main__":
     with duckdb.connect(  # type: ignore
@@ -363,3 +377,5 @@ if __name__ == "__main__":
         )
 
         univ.process()
+
+        print(univ.report_coverage())
