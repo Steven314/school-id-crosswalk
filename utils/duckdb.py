@@ -16,13 +16,15 @@ class DuckDB:
 
     def __init__(self, db_file: str = ":memory:"):
         self.db_file = db_file
-
-    def __enter__(self):
         self.duck: duckdb.DuckDBPyConnection = duckdb.connect(self.db_file)  # type: ignore
 
+    def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):  # type: ignore
+        self.close()
+
+    def close(self):
         self.duck.close()
 
     def sql(self, query: str, alias: str = "", params: object = None):
@@ -225,7 +227,7 @@ class DuckDB:
         self.duck.execute(sql)
 
     def create_table_query(self, table_name: str, query: str):
-        """Create a DuckDB Table From a SQL Query.
+        """Create a DuckDB Table From a SQL Query
 
         Args:
             table_name (str): The name of the table to be created.
@@ -259,6 +261,16 @@ class DuckDB:
             self.duck.sql(
                 f"CREATE OR REPLACE VIEW {view_name} AS ({f.read()})"
             )
+
+    def create_view_query(self, view_name: str, query: str):
+        """Create a DuckDB View From a SQL Query
+
+        Args:
+            view_name (str): The name of the view to be created.
+            query (str): A SQL query stored as a string.
+        """
+
+        self.duck.sql(f"CREATE OR REPLACE VIEW {view_name} AS ({query})")
 
     def start_ui(self):
         self.duck.execute("call start_ui()")
