@@ -32,9 +32,39 @@ Pulling all of those is a pain and takes a long time.
   site. That may not be much of an issue since the College Board has many codes
   for places other than high schools, which is mainly what I'm after.
 - Pulling from the NCAA site takes a very long time. It takes a little under a
-  second to run each query and there over 47,000 queries :neutral_face:. This
-  ended up being a multi-day process to slowly pull all the records and monitor
-  it.
+  second to run each query and there over 47,000 queries :neutral_face:.
+  - This ended up being a multi-day process to slowly pull all the records and
+    monitor it.
+  - About 45% of College Board codes were found on the NCAA site.
+
+### Matching Strategy
+
+I chose an iterative strategy for matching the records.
+Each step utilizes only the records which did not match in the previous step.
+
+### Adjustments
+
+#### General
+
+- Some of the states had a slightly different representation between the NCAA
+  data and the geometry data. These were unified to the geometry data form.
+- Dots and dashes were removed.
+- `and` was converted to `&`.
+- `@` was converted to `at`.
+- Leading or trailing `the` were removed.
+- Special characters were removed or replaced with spaces.
+- Some schools have a number associated with them. The number of signifier (`#`, `no`, `number`) was removed.
+- `saint` was converted to `st`.
+- Extra spaces were removed.
+  - This includes squashing initials, for example, `j j a e p` to `jjaep`.
+- Many schools, especially in the NCES data, abbreviated parts of the
+  school name. These were expanded to say the full name where possible.
+  - There were many such situations across the various types of schools.
+  - Most of the adjustments are related to this.
+
+#### Specific
+
+Some of the changes above likely only altered a couple records, but their nature was still general.
 
 ## Higher Educational Institutions
 
