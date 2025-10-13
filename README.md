@@ -61,6 +61,7 @@ At the K-12 level, I would like to be able to also connect individuals schools t
 - [DuckDB](https://duckdb.org)
   - [FTS Extension](https://duckdb.org/docs/stable/core_extensions/full_text_search) for similarity matching.
   - [Spatial Extension](https://duckdb.org/docs/stable/core_extensions/spatial/overview) for handling shapefiles from the US Census Bureau.
+  - [Excel Extension](https://duckdb.org/docs/stable/core_extensions/excel) for loading `.xlsx` data files.
 - R
 - Python
 - [Make](https://www.gnu.org/software/make/) for automation and ensuring the results are up-to-date with the code.
@@ -71,5 +72,7 @@ At the K-12 level, I would like to be able to also connect individuals schools t
 - [NORC at University of Chicago, Appendix B (pdf)](https://www.norc.org/content/dam/norc-org/pdfs/HAA%20Phase%201%20Main%20Findings%20Report%20-%20NORC%20-%208.31.2011.pdf)
 - Mark Davenport's [presentation](https://uncg.sharepoint.com/:b:/s/dept-10803/EYNEBgCkV2NNovX2c5mVxqwBD0xGGy57gvIvZsqgC6ZKyQ?e=crofWT) from the [NCAIR 2025 Conference](https://nc-air.org/2025-ncair-conference-presentations/).
   - His presentation has some useful information about how the NCES and LEA codes are constructed.
+- [LiveBy API](https://docs.liveby.com/api/schools)
+  - This seems like a good data source, but it is not free or open source.
 
 If I find more, I will add them here.
