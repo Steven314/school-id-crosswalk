@@ -1,5 +1,3 @@
-import polars as pl
-
 from utils.ceeb import CEEB_NCAA, CEEBCollege, CEEBHighSchool
 from utils.duckdb import DuckDB
 
@@ -17,8 +15,11 @@ from utils.duckdb import DuckDB
 
 if __name__ == "__main__":
     college: bool = False
-    high_school: bool = False
-    ncaa_hs: bool = True
+    high_school: bool = True
+    ncaa_hs: bool = False
+
+    # for ncaa_hs:
+    overwrite_duckdb: bool = False
 
     if college:
         with DuckDB("clean-data/ceeb.duckdb") as duck:
@@ -41,38 +42,30 @@ if __name__ == "__main__":
             ceeb_codes = (
                 duck.sql(
                     "select distinct ceeb_code from school order by ceeb_code "
-                    # "limit 46000"
                 )
                 .pl()["ceeb_code"]
                 .to_list()
             )
 
-        print(f"This will gather {len(ceeb_codes)} CEEB codes.")
+        chunk_length = 50
+        ceeb_codes_split = [
+            ceeb_codes[i : i + chunk_length]
+            for i in range(0, len(ceeb_codes), chunk_length)
+        ]
 
-        with CEEB_NCAA() as ceeb:
-            ceeb.check_ceeb_data_dir("extracted-zips/ceeb_ncaa")
-            big_data = (
-                pl.from_dicts([ceeb.process(c) for c in ceeb_codes])
-                .with_columns(
-                    pl.col("NCAA High School Code").alias("ncaa_code"),
-                    pl.col("CEEB Code").alias("ceeb_code"),
-                    pl.col("High School Name").alias("name"),
-                    pl.col("Address")
-                    .str.extract_groups("(.*)<br>(.*)<br>(\\w\\w)  - (\\d+)")
-                    .alias("address_pieces"),
-                )
-                .select(
-                    "ncaa_code",
-                    "ceeb_code",
-                    "name",
-                    pl.col("address_pieces").struct["1"].alias("address"),
-                    pl.col("address_pieces").struct["2"].alias("city"),
-                    pl.col("address_pieces").struct["3"].alias("state"),
-                    pl.col("address_pieces").struct["4"].alias("zip"),
-                )
-            ).filter(pl.col("name").is_not_null())
+        print(
+            f"This will gather {len(ceeb_codes)} CEEB codes"
+            + f" in {len(ceeb_codes_split)} chunks of {chunk_length} each."
+        )
 
-            print(big_data)
+        for i, ceeb_code_segment in enumerate(ceeb_codes_split):
+            print(i)
 
-            with DuckDB("clean-data/ceeb.duckdb") as duck:
-                ceeb.append_to_duckdb(duck, big_data)
+            ceeb = CEEB_NCAA()
+            ceeb.iterate(ceeb_code_segment)
+            ceeb.combine_data()
+            ceeb.write_ndjson()
+
+            if overwrite_duckdb:
+                with DuckDB("clean-data/ceeb.duckdb") as duck:
+                    ceeb.append_to_duckdb(duck, quiet=True)

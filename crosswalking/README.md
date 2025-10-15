@@ -35,7 +35,7 @@ Pulling all of those is a pain and takes a long time.
   second to run each query and there over 47,000 queries :neutral_face:.
   - This ended up being a multi-day process to slowly pull all the records and
     monitor it.
-  - About 45% of College Board codes were found on the NCAA site.
+  - About 55% of College Board codes were found on the NCAA site.
 
 ### Matching Strategy
 

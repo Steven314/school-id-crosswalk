@@ -2,8 +2,7 @@ import json
 import os
 import re
 import time
-from io import StringIO
-from typing import List
+from typing import Any, List
 
 import pdfplumber
 import polars as pl
@@ -284,21 +283,35 @@ class CEEB_NCAA:
 
         self.timeout_limit = timeout_limit
 
-        self.storage_path = os.path.join("extracted-zips", "ceeb_ncaa")
+        self.storage_file = os.path.join("extracted-zips", "ceeb_ncaa.ndjson")
 
-        if not os.path.exists(self.storage_path):
-            os.mkdir(self.storage_path)
+        if not os.path.exists("extracted-zips"):
+            os.mkdir("extracted-zips")
+
+        if os.path.exists(self.storage_file):
+            self.old_data = pl.read_ndjson(
+                self.storage_file,
+                schema=dict(
+                    {
+                        "ncaa_code": pl.String,
+                        "ceeb_code": pl.String,
+                        "name": pl.String,
+                        "address": pl.String,
+                        "city": pl.String,
+                        "state": pl.String,
+                        "zip": pl.String,
+                        "message": pl.String,
+                    }
+                ),
+            )
+            self.processed_ceebs: List[str] = self.old_data[
+                "ceeb_code"
+            ].to_list()
+
+        else:
+            self.processed_ceebs: List[str] = []
 
         self.table_name = "ncaa_school"
-
-    def __enter__(self):
-        self.driver = webdriver.Chrome()
-        self.driver.get(self.url)
-
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):  # type: ignore
-        self.driver.quit()
 
     def search_ceeb_code(self, ceeb: str):
         wait = WebDriverWait(
@@ -313,6 +326,7 @@ class CEEB_NCAA:
             EC.presence_of_element_located((By.ID, "ceebCodeOnCrsDispId"))
         )
 
+        # clear any prior input
         ceeb_text_box.clear()
 
         # enter the CEEB code
@@ -346,6 +360,7 @@ class CEEB_NCAA:
         )
 
         try:
+            # this will intentionally fail if it is not found
             table = table.find_element(  # type: ignore
                 by=By.CSS_SELECTOR,
                 value="table.table.table-sm.table-bordered.border-primary",
@@ -356,7 +371,7 @@ class CEEB_NCAA:
                 "html.parser",
             ).find_all("tr")
 
-            data: dict[str, str | None] = dict(
+            data_pre: dict[str, str] = dict(
                 [
                     [
                         td.get_text(separator="<br>", strip=True)  # type: ignore
@@ -366,13 +381,39 @@ class CEEB_NCAA:
                 ]
             )
 
-        except NoSuchElementException:
+            address_parts: re.Match[str] = re.match(
+                "(.*)<br>(.*)<br>(\\w\\w)  - (\\d+)",
+                str(data_pre.get("Address")),
+            )  # type: ignore
+
+            # transform the address box to address, city, state, zip separately
             data: dict[str, str | None] = dict(
                 {
-                    "NCAA High School Code": None,
-                    "CEEB Code": ceeb,
-                    "High School Name": None,
-                    "Address": None,
+                    "ncaa_code": data_pre.get("NCAA High School Code"),
+                    "ceeb_code": data_pre.get("CEEB Code"),
+                    "name": data_pre.get("High School Name"),
+                    "address": address_parts.group(1),
+                    "city": address_parts.group(2),
+                    "state": address_parts.group(3),
+                    "zip": address_parts.group(4),
+                    "message": None,
+                }
+            )
+
+        except NoSuchElementException:
+            # capture the error message in case it shows anything interesting
+            error = self.driver.find_elements(By.CSS_SELECTOR, "span.error")[0]  # type: ignore
+
+            data: dict[str, str | None] = dict(
+                {
+                    "ncaa_code": None,
+                    "ceeb_code": ceeb,
+                    "name": None,
+                    "address": None,
+                    "city": None,
+                    "state": None,
+                    "zip": None,
+                    "message": error.get_attribute("innerText"),  # type: ignore
                 }
             )
 
@@ -381,40 +422,71 @@ class CEEB_NCAA:
     def return_to_search(self):
         self.driver.back()
 
-    def check_ceeb_data_dir(self, dir: str):
-        self.ceeb_files = os.listdir(dir)
-
-    def check_ceeb_data(self, file: str) -> bool:
-        return file in self.ceeb_files
-
-    def load_ceeb_data(self, file: str) -> dict[str, str]:
-        with open(file, "r") as f:
-            data = json.load(f)
-
-        return data
-
-    def save_ceeb_data(self, file: str, data: dict[str, str]):
-        with open(file, "w") as f:
-            f.write(json.dumps(data))
-
     def process(self, ceeb: str):
-        file = os.path.join(self.storage_path, ceeb + ".json")
+        # if the data is not known, download it and append it to the list
+        start = time.time()
+        self.search_ceeb_code(ceeb)
 
-        if not self.check_ceeb_data(ceeb + ".json"):
-            # if the data is not known, download it.
-            self.search_ceeb_code(ceeb)
+        data = self.pull_table(ceeb)
 
-            data = self.pull_table(ceeb)
+        self.new_data_list.append(data)
 
-            self.save_ceeb_data(file, data)  # type: ignore
-            self.return_to_search()
+        self.return_to_search()
+
+        end = time.time()
+        time_taken = end - start
+
+        print(f"CEEB {ceeb} in {time_taken:.02f} seconds.")
+
+    def iterate(self, ceebs: List[str]):
+        self.new_data_list: List[dict[str, str | None]] = []
+
+        ceebs_needed = list(
+            filter(lambda x: x not in self.processed_ceebs, ceebs)
+        )
+
+        print(f"This will fetch {len(ceebs_needed)} CEEB codes from the web.")
+
+        if len(ceebs_needed) != 0:
+            self.driver = webdriver.Chrome()
+            self.driver.get(self.url)
+
+            for ceeb in ceebs_needed:
+                self.process(ceeb)
+
+            self.driver.close()
+
+        self.new_data = pl.from_dicts(
+            self.new_data_list,
+            schema=dict(
+                {
+                    "ncaa_code": None,
+                    "ceeb_code": None,
+                    "name": None,
+                    "address": None,
+                    "city": None,
+                    "state": None,
+                    "zip": None,
+                    "message": None,
+                }
+            ),
+        )
+
+    def combine_data(self):
+        if hasattr(self, "old_data"):
+            self.combined_data = self.old_data.vstack(self.new_data)
         else:
-            # if it is known, load it.
-            data = self.load_ceeb_data(file)
+            self.combined_data = self.new_data
 
-        return data
+    def write_ndjson(self):
+        self.combined_data.sort("ceeb_code").write_ndjson(self.storage_file)
 
-    def append_to_duckdb(self, duck: DuckDB, data: pl.DataFrame):
+    def append_to_duckdb(self, duck: DuckDB, quiet: bool = True):
+        data = pl.read_ndjson(self.storage_file)
+
+        if not quiet:
+            print(data)
+
         sql = "SELECT * FROM data"
 
         # Because of a scope issue, the DuckDB wrapper must be bypassed.
