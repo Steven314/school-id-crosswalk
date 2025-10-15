@@ -7,13 +7,13 @@ from typing import Any, List
 import pdfplumber
 import polars as pl
 from bs4 import BeautifulSoup
-from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.wait import WebDriverWait
+from seleniumwire import webdriver
 
 from utils.conditionals import conditional_download
 from utils.duckdb import DuckDB
@@ -104,7 +104,7 @@ class CEEBCollege:
 
 
 class CEEBHighSchool:
-    def __init__(self, timeout_limit: int = 20):
+    def __init__(self, duck: DuckDB, timeout_limit: int = 20):
         # initial URL of the page
         self.url = (
             "https://satsuite.collegeboard.org/"
@@ -119,20 +119,11 @@ class CEEBHighSchool:
         self.state_index = 0
         self.n_states = 57
 
-        # create a list of empty data frames
-        self.data: List[pl.DataFrame] = [
-            pl.DataFrame(
-                schema={
-                    "name": pl.String,
-                    "ceeb_code": pl.String,
-                    "state": pl.String,
-                }
-            )
-        ] * self.n_states
-
         self.storage_path = os.path.join("extracted-zips", "ceeb")
 
         self.table_name = "school"
+
+        self.duck = duck
 
     def __enter__(self):
         self.driver = webdriver.Chrome()
@@ -185,9 +176,9 @@ class CEEBHighSchool:
     def click_submit(self):
         self.driver.find_element(By.CLASS_NAME, "cb-btn-primary").click()
 
-    def get_table(self):
+    def pull_json(self):
         self.file_path = os.path.join(
-            self.storage_path, self.state_name + ".txt"
+            self.storage_path, self.state_name + ".json"
         )
 
         # The Marshall Islands apparently have no results which results in an
@@ -206,46 +197,73 @@ class CEEBHighSchool:
                 ignored_exceptions=[Exception],
             )
 
-            # wait until the table loads.
-            table = wait.until(
+            # just to make the process wait for it to finish loading.
+            result_wait = wait.until(
+                # EC.presence_of_element_located((By.CLASS_NAME, "col-xs-6"))
                 EC.presence_of_element_located(
                     (By.CSS_SELECTOR, "ul.cb-text-list.cb-text-list-feature")
                 )
             )
 
-            # the text out of the table.
-            table_contents = str(table.get_attribute("innerText"))  # type: ignore
+            result_number = int(result_wait.get_property("childElementCount"))  # type: ignore
+            print(result_number)
 
+            # gather the responses as JSON
+            responses: List[dict[str, Any]] = []
+            for request in self.driver.requests:
+                if (
+                    "https://organization.cds-prod.collegeboard.org/pine/aisearch"
+                    in request.url
+                ):
+                    responses.append(
+                        json.loads(request.response.body.decode())  # type: ignore
+                    )
+
+            # clear the requests list for the next iteration
+            del self.driver.requests
+
+            # save the data as a JSON file.
             if not os.path.exists(self.storage_path):
                 os.mkdir(self.storage_path)
 
             with open(self.file_path, "w") as f:
-                f.write(table_contents)
-
-        else:
-            with open(self.file_path, "r") as f:
-                table_contents = f.read()
-
-        # Convert it from "<name>\n<number>\n" to "<name>|<number>\n".
-        # This is essentially making it a pipe-separated file as a single
-        # string.
-        pipe_table: str = re.sub(
-            r"(.*)\n(\d+)\n?",
-            r"\1|\2\n",
-            table_contents,
-        )
-
-        # Convert it to polars and put it in the dataframe. The minus one is
-        # because the website has 1-based indexing and Python is 0-based.
-        self.data[self.state_index - 1] = pl.read_csv(
-            StringIO(pipe_table),
-            schema={"name": pl.String, "ceeb_code": pl.String},
-            has_header=False,
-            separator="|",
-        ).with_columns(state=pl.lit(self.state_name))
+                json.dump(responses, f, indent=2)
 
     def collect_data(self) -> pl.DataFrame:
-        return pl.concat(self.data)
+        # convert build the table from JSON with DuckDB
+        sql = (
+            "with unnested as ("
+            "  select "
+            "    var: unnest(hits.hits)._source, "
+            "    state: parse_filename(filename, true) "
+            f"  from '{self.storage_path.replace('\\', '/')}/*.json'"
+            "), "
+            "pieces as ("
+            "  select "
+            "    ceeb: var.ais[1].ai_code,"
+            "    nces: lpad(var.org_nces_sch_id, 12, '0'),"
+            "    ipeds: var.org_ipeds_id,"
+            "    full_name: var.org_full_name,"
+            "    name: var.di_name,"
+            "    short_name: var.org_short_name,"
+            "    abbreviated_name: var.org_abbrev_name,"
+            "    address: var.org_street_addr1,"
+            "    city: var.org_city,"
+            "    state,"
+            "    state_abbr: var.org_state_cd,"
+            "    country: var.org_country_iso_cd,"
+            "    zip: var.org_zip5,"
+            "    latitude: var.org_geo.lat,"
+            "    longitude: var.org_geo.lon,"
+            "    updated: make_timestamp(var.last_update_dt::BIGINT * 1000)"
+            "  from unnested"
+            ") "
+            "from pieces"
+        )
+
+        self.data = self.duck.sql(sql).pl()
+
+        return self.data
 
     def process(self):
         while self.state_index < self.n_states:
@@ -255,18 +273,17 @@ class CEEBHighSchool:
             # state index is iterated in choosing the next state
             self.choose_next_state()
 
-            self.get_table()
+            self.pull_json()
 
             # wait a bit to be safe
             time.sleep(0.5)
 
-        return self.collect_data()
-
-    def append_to_duckdb(self, duck: DuckDB, data: pl.DataFrame):
+    def append_to_duckdb(self):
+        data = self.data  # type: ignore # noqa: F841
         sql = "SELECT * FROM data"
 
         # Because of a scope issue, the DuckDB wrapper must be bypassed.
-        duck.duck.execute(
+        self.duck.duck.execute(
             f"create or replace table {self.table_name} as ({sql})"
         )
 

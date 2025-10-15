@@ -30,11 +30,11 @@ if __name__ == "__main__":
             ceeb.append_to_duckdb(duck, ceeb_data)
 
     if high_school:
-        with CEEBHighSchool(timeout_limit=30) as ceeb:
-            data = ceeb.process()
-
-            with DuckDB("clean-data/ceeb.duckdb") as duck:
-                ceeb.append_to_duckdb(duck, data)
+        with DuckDB("clean-data/ceeb.duckdb") as duck:
+            with CEEBHighSchool(duck, timeout_limit=60) as ceeb:
+                ceeb.process()
+                ceeb.collect_data()
+                ceeb.append_to_duckdb()
 
     if ncaa_hs:
         # This needs the above high school section done.
