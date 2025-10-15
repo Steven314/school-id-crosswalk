@@ -17,7 +17,7 @@ WITH public AS (
     FROM nces.public
 ), private AS (
     SELECT 
-        nces: ppin,
+        nces: '0000' || ppin,
         nces_name: name,
         public_private: 'private',
         address: street,
@@ -73,9 +73,9 @@ SELECT
         .regexp_replace('elementary\s?$| e school', 'elementary school')
         .regexp_replace(' h s$| high$| hi school$| h school$', ' high school')
         .regexp_replace(' hs(\s|$)', ' high school ')
+        .regexp_replace('j\s?shs', 'junior senior high school')
         .regexp_replace(' shs$', ' senior high school')
         .regexp_replace(' jh$| jhs$', ' junior high school')
-        .regexp_replace('jshs', 'junior senior high school')
         .regexp_replace('jr & sr|jr sr|jrsr', 'junior senior')
         .regexp_replace(' jr ', ' junior ')
         .regexp_replace(' sr ', ' senior ')

@@ -13,7 +13,7 @@ schools AS (
         state_abbr: state,
         zip: zip
     FROM ceeb.ncaa_school
-    WHERE ceeb_code NOT IN ('000000', '000003')
+    WHERE ceeb_code NOT IN ('000000', '000003') AND ncaa_name IS NOT NULL
 ),
 schools_geo AS (
     SELECT * 
@@ -22,8 +22,14 @@ schools_geo AS (
 ),
 ceebs AS (
     SELECT 
-        ceeb: ceeb_code,
+        ceeb: case (ipeds is null)
+          when true then lpad(ceeb, 6, '0')
+          when false then lpad(ceeb, 4, '0')
+        end,
+        nces,
         ceeb_name: name,
+        address,
+        city,
         -- fix some variation in the state names
         state: case state
             when 'District Of Columbia' then 'District of Columbia'
@@ -31,7 +37,11 @@ ceebs AS (
             when 'Northern Mariana Islands' then 'Commonwealth of the Northern Mariana Islands'
             else state
         end,
+        zip,
+        latitude,
+        longitude
     FROM ceeb.school
+    WHERE ipeds IS NULL
 ),
 ceebs_geo AS (
     SELECT * 
@@ -41,17 +51,21 @@ ceebs_geo AS (
 combined AS (
     SELECT 
         ceeb,
-        ceeb_name,
-        address,
-        city,
+        nces,
+        ceeb_name: coalesce(ceebs_geo.ceeb_name, schools_geo.ncaa_name),
+        address: coalesce(ceebs_geo.address, schools_geo.address),
+        city: coalesce(ceebs_geo.city, schools_geo.city),
         state: coalesce(ceebs_geo.state, schools_geo.state),
         state_abbr: coalesce(ceebs_geo.state_abbr, schools_geo.state_abbr),
-        zip
+        zip: coalesce(ceebs_geo.zip, schools_geo.zip),
+        latitude,
+        longitude
     FROM schools_geo
     FULL JOIN ceebs_geo USING (ceeb) 
 )
 SELECT 
     ceeb,
+    nces,
     ceeb_name,
     name: ceeb_name
         .lower()
@@ -105,5 +119,7 @@ SELECT
     city: city.lower(),
     state,
     state_abbr,
-    zip
+    zip,
+    latitude,
+    longitude
 FROM combined
