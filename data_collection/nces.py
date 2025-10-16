@@ -1,5 +1,5 @@
 from utils.duckdb import DuckDB
-from utils.nces import NCES
+from utils.nces import NCES, NeoNCES
 
 # The Department of Education publishes a shapefile and data for each public,
 # private, and higher ed institution each year. This is published in on
@@ -19,3 +19,11 @@ if __name__ == "__main__":
             school.download()
             school.extract()
             school.append_to_duckdb(duck)
+
+    with DuckDB("clean-data/nces.duckdb") as duck:
+        with NeoNCES(duck) as nces:
+            nces.iterate("public")
+            nces.iterate("private")
+
+            nces.gather()
+            nces.append_to_duckdb()
