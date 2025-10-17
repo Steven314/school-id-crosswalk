@@ -1,8 +1,8 @@
 import os
 from typing import List
 
-from utils.ipeds import IPEDS
 from utils.duckdb import DuckDB
+from utils.ipeds import IPEDS
 
 
 class HD:

@@ -74,5 +74,8 @@ At the K-12 level, I would like to be able to also connect individuals schools t
   - His presentation has some useful information about how the NCES and LEA codes are constructed.
 - [LiveBy API](https://docs.liveby.com/api/schools)
   - This seems like a good data source, but it is not free or open source.
+- NCES maintains some datasets with [ArcGIS Online](https://data-nces.opendata.arcgis.com/).
+  These are available through an [API](https://data-nces.opendata.arcgis.com/pages/use-apis).
+  - This would be a good source for updated and historical NCES directory data, but it does not contain any state-level identifiers other than district code.
 
 If I find more, I will add them here.
