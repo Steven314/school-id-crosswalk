@@ -1,71 +1,37 @@
-WITH states AS (
-    SELECT DISTINCT 
-        state: name, 
-        state_abbr: stusps 
-    FROM geography.state
-),
-schools AS (
-    SELECT 
-        ceeb: ceeb_code,
-        ncaa_name: name,
-        address: address,
-        city: city,
-        state_abbr: state,
-        zip: zip
-    FROM ceeb.ncaa_school
-    WHERE ceeb_code NOT IN ('000000', '000003') AND ncaa_name IS NOT NULL
-),
-schools_geo AS (
-    SELECT * 
-    FROM schools
-    LEFT JOIN states USING (state_abbr)
-),
-ceebs AS (
-    SELECT 
-        ceeb: case (ipeds is null)
-          when true then lpad(ceeb, 6, '0')
-          when false then lpad(ceeb, 4, '0')
-        end,
-        nces,
-        ceeb_name: name,
+WITH college_board AS (
+    SELECT
+        ceeb,
+        ceeb_name: full_name,
         address,
         city,
-        -- fix some variation in the state names
-        state: case state
-            when 'District Of Columbia' then 'District of Columbia'
-            when 'Virgin Islands' then 'United States Virgin Islands'
-            when 'Northern Mariana Islands' then 'Commonwealth of the Northern Mariana Islands'
-            else state
-        end,
+        state_abbr,
         zip,
         latitude,
         longitude
     FROM ceeb.school
-    WHERE ipeds IS NULL
 ),
-ceebs_geo AS (
-    SELECT * 
-    FROM ceebs 
-    LEFT JOIN states USING (state)
+ncaa AS (
+    SELECT 
+        ceeb: ceeb_code,
+        ceeb_name: name,
+        address,
+        city,
+        state_abbr: state,
+        zip
+    FROM ceeb.ncaa_school
+    WHERE ncaa_code IS NOT NULL
+),
+ncaa_new AS (
+    FROM ncaa 
+    ANTI JOIN college_board USING (ceeb)
 ),
 combined AS (
-    SELECT 
-        ceeb,
-        nces,
-        ceeb_name: coalesce(ceebs_geo.ceeb_name, schools_geo.ncaa_name),
-        address: coalesce(ceebs_geo.address, schools_geo.address),
-        city: coalesce(ceebs_geo.city, schools_geo.city),
-        state: coalesce(ceebs_geo.state, schools_geo.state),
-        state_abbr: coalesce(ceebs_geo.state_abbr, schools_geo.state_abbr),
-        zip: coalesce(ceebs_geo.zip, schools_geo.zip),
-        latitude,
-        longitude
-    FROM schools_geo
-    FULL JOIN ceebs_geo USING (ceeb) 
+    FROM college_board 
+    UNION ALL BY NAME 
+    FROM ncaa_new
 )
 SELECT 
     ceeb,
-    nces,
     ceeb_name,
     name: ceeb_name
         .lower()
@@ -113,11 +79,12 @@ SELECT
         .regexp_replace(' prep ', ' preparatory ')
         .regexp_replace('\s{2,}', ' ', 'g')
         .trim(),
+    ceeb_address: address,
     address: address
         .lower()
         .regexp_replace('\.', '', 'g'),
+    ceeb_city: city,
     city: city.lower(),
-    state,
     state_abbr,
     zip,
     latitude,

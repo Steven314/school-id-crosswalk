@@ -1,44 +1,57 @@
 WITH public AS (
     SELECT 
-        nces: ncessch,
-        lea: leaid,
-        nces_name: name,
-        public_private: 'public',
-        address: street,
-        city: city,
-        county_name: nmcnty,
-        state_fips: stfip,
-        state_abbr: state,
-        zip: zip[1:5],
-        fips: cnty,
-        latitude: lat,
-        longitude: lon,
-        edition
+        * RENAME(ncessch AS nces), 
+        public_private: 'public'
     FROM nces.public
 ), private AS (
     SELECT 
-        nces: '0000' || ppin,
+        * EXCLUDE(ppin), 
+        nces: '0000' || ppin, 
+        public_private: 'private'
+    FROM nces.private
+),
+nces_nation AS (
+    SELECT 
+        nces,
         nces_name: name,
-        public_private: 'private',
         address: street,
         city: city,
-        county_name: nmcnty,
-        state_fips: stfip,
         state_abbr: state,
         zip: zip[1:5],
         fips: cnty,
         latitude: lat,
         longitude: lon,
-        edition
-    FROM nces.private
-), geo AS (
+        public_private,
+        congressional_district: cd,
+        cbsa: cbsa,
+        state_legislature_lower: sldl,
+        state_legislature_upper: sldu
+    FROM public 
+    UNION ALL BY NAME 
+    FROM private
+), combined AS (
     SELECT 
-        state: name, 
-        state_abbr: stusps 
-    FROM geography.state
+        nces,
+        state_school_id,
+        nces_name: COALESCE(s.nces_name, n.nces_name),
+        address: COALESCE(s.address, n.address),
+        city: COALESCE(s.city, n.city),
+        state_abbr: COALESCE(s.state_abbr, n.state_abbr),
+        zip: COALESCE(s.zip, n.zip),
+        fips: COALESCE(s.fips, n.fips),
+        latitude,
+        longitude,
+        public_private,
+        congressional_district,
+        cbsa,
+        state_legislature_lower,
+        state_legislature_upper
+    FROM nces.school s
+    FULL JOIN nces_nation n USING (nces)
 )
 SELECT 
     nces,
+    state_school_id,
     nces_name,
     name: nces_name
         .lower()
@@ -94,18 +107,19 @@ SELECT
         .regexp_replace('\s{2,}', ' ', 'g')
         .trim(),
     public_private,
+    nces_address: address,
     address: address
         .lower()
         .regexp_replace('\.', '', 'g'),
+    nces_city: city,
     city: city.lower(),
-    county_name,
-    state_fips,
-    geo.state,
     state_abbr,
     zip,
     fips,
     latitude,
     longitude,
-    edition
-FROM (FROM public UNION ALL BY NAME FROM private) hs
-LEFT JOIN geo USING (state_abbr)
+    congressional_district,
+    cbsa,
+    state_legislature_lower,
+    state_legislature_upper
+FROM combined

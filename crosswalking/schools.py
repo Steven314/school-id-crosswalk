@@ -16,15 +16,21 @@ class SchoolCrosswalk:
     ):
         self.duck = duck
 
+        self.crosswalk_sql_dir = crosswalk_sql_dir
+
         # the required SQL files
-        self.sql_file_names = ["ceeb_school", "nces_school"]
+        self.sql_file_names = [
+            "ceeb_school",
+            "nces_school",
+            "college_board_matches",
+        ]
         self.sql_files = [
-            os.path.join(crosswalk_sql_dir, file + ".sql")
+            os.path.join(self.crosswalk_sql_dir, file + ".sql")
             for file in self.sql_file_names
         ]
 
         # the tables to be created.
-        self.table_names = ["ceeb", "nces"]
+        self.table_names = ["ceeb", "nces", "cb_match"]
 
         # the required DuckDB files.
         self.db_names = ["ceeb", "geography", "nces"]
@@ -54,7 +60,7 @@ class SchoolCrosswalk:
             )
             == 0
         ):
-            self.duck.duck.create_function("tighten", tighten)
+            self.duck.duck.create_function("tighten", tighten)  # type: ignore
 
         for file, name in zip(self.sql_files, self.table_names):
             self.duck.create_table_file(name, file)
@@ -112,13 +118,25 @@ class SchoolCrosswalk:
 
             return sql
 
+        # first, create the non-matched CEEB and NCES records based on the
+        # College Board's matches.
+        self.duck.create_table_query(
+            table_name="cb_unmatched_ceeb",
+            query="from ceeb anti join cb_match using (ceeb)",
+        )
+
+        self.duck.create_table_query(
+            table_name="cb_unmatched_nces",
+            query="from nces anti join cb_match using (nces)",
+        )
+
         round_1 = iterate(
             "1",
             None,
-            "(select * exclude nces from schools.ceeb where nces is null)",
-            "(from schools.nces anti join schools.ceeb using (nces))",
-            ["name", "address", "city", "state", "state_abbr", "zip"],
-            ["address", "city", "state", "state_abbr", "zip"],
+            "cb_unmatched_ceeb",
+            "cb_unmatched_nces",
+            ["name", "address", "city", "state_abbr", "zip"],
+            ["address", "city", "state_abbr", "zip"],
         )
 
         round_2 = iterate(
@@ -126,8 +144,8 @@ class SchoolCrosswalk:
             ["name"],
             "non_1_ceeb",
             "non_1_nces",
-            ["address", "city", "state", "state_abbr", "zip"],
-            ["address", "city", "state", "state_abbr", "zip"],
+            ["address", "city", "state_abbr", "zip"],
+            ["address", "city", "state_abbr", "zip"],
         )
 
         round_3 = iterate(
@@ -135,8 +153,8 @@ class SchoolCrosswalk:
             ["address"],
             "non_2_ceeb",
             "non_2_nces",
-            ["name", "city", "state", "state_abbr", "zip"],
-            ["name", "city", "state", "state_abbr", "zip"],
+            ["name", "city", "state_abbr", "zip"],
+            ["name", "city", "state_abbr", "zip"],
         )
 
         round_4 = iterate(
@@ -144,8 +162,8 @@ class SchoolCrosswalk:
             ["address", "zip"],
             "non_3_ceeb",
             "non_3_nces",
-            ["name", "city", "state", "state_abbr"],
-            ["name", "city", "state", "state_abbr"],
+            ["name", "city", "state_abbr"],
+            ["name", "city", "state_abbr"],
         )
 
         round_5 = iterate(
@@ -153,8 +171,8 @@ class SchoolCrosswalk:
             ["address", "city"],
             "non_4_ceeb",
             "non_4_nces",
-            ["name", "state", "state_abbr", "zip"],
-            ["name", "state", "state_abbr", "zip"],
+            ["name", "state_abbr", "zip"],
+            ["name", "state_abbr", "zip"],
         )
 
         round_6 = iterate(
@@ -162,8 +180,8 @@ class SchoolCrosswalk:
             ["address", "city", "zip"],
             "non_5_ceeb",
             "non_5_nces",
-            ["name", "state", "state_abbr"],
-            ["name", "state", "state_abbr"],
+            ["name", "state_abbr"],
+            ["name", "state_abbr"],
         )
 
         rounds = [round_1, round_2, round_3, round_4, round_5, round_6]
@@ -181,10 +199,7 @@ class SchoolCrosswalk:
             "nces_name",
             "address",
             "city",
-            "state",
             "state_abbr",
-            "state_fips",
-            "county_name",
             "fips",
             "zip",
             "latitude",
@@ -204,6 +219,29 @@ class SchoolCrosswalk:
 
             return self.duck.sql("from unique_exact_matches").pl()
 
+    def build_crosswalk(self):
+        self.duck.create_table_file(
+            "crosswalk",
+            os.path.join(self.crosswalk_sql_dir, "school_crosswalk.sql"),
+        )
+
+    def save_crosswalk(
+        self,
+        polars: bool = False,
+        csv: bool = True,
+        csv_file: str = "crosswalk.csv",
+    ) -> pl.DataFrame | None:
+        data = self.duck.table("crosswalk").pl()
+
+        if csv:
+            with open(csv_file, "w", encoding="utf8") as f:
+                data.write_csv(f)
+
+        if polars:
+            return data
+        else:
+            return None
+
 duck = DuckDB(os.path.join("crosswalking", "schools.duckdb"))
 
 
@@ -220,3 +258,5 @@ school.create_school_tables()
 
 
 school.iterative_exact_matching()
+school.build_crosswalk()
+school.save_crosswalk(csv_file="crosswalking\\school_crosswalk.csv")
