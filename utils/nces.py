@@ -195,15 +195,15 @@ class NeoNCES:
         )
 
         # hit the download button, but only if the file does not already exist.
-        if not os.path.exists(file_path):
-            buttons[0].click()
+        # if not os.path.exists(file_path):
 
-            time.sleep(2)  # allow time for the download
+        # it shouldn't exist. we already checked for that.
+        buttons[0].click()
 
-            # move the downloaded file to the right folder.
-            os.rename(
-                os.path.expanduser(f"~/Downloads/{file_name}"), file_path
-            )
+        time.sleep(2)  # allow time for the download
+
+        # move the downloaded file to the right folder.
+        os.rename(os.path.expanduser(f"~/Downloads/{file_name}"), file_path)
 
         # close the little window
         buttons[-1].click()
@@ -214,7 +214,7 @@ class NeoNCES:
     def iterate(self, public_private: str):
         for state in self.state_fips:
             file = os.path.join(
-                f"extracted-zips/nces/{public_private}_{state}.xls"
+                f"extracted-zips/nces/{public_private}_{state}.html"
             )
 
             # if it exists, skip it.
@@ -264,6 +264,7 @@ class NeoNCES:
                     state_district_id: "State District ID",
                     low_grade: "Low Grade",
                     high_grade: "High Grade",
+                    public_private: 'public',
                     nces_name: "School Name",
                     district: "District",
                     county_name: "County Name",
@@ -279,6 +280,7 @@ class NeoNCES:
                     nces_name: PSS_INST,
                     low_grade: LoGrade,
                     high_grade: HiGrade,
+                    public_private: 'private',
                     address: PSS_ADDRESS,
                     city: PSS_CITY,
                     fips: PSS_COUNTY_NO,

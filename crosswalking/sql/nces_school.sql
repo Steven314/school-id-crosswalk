@@ -41,7 +41,9 @@ nces_nation AS (
         fips: COALESCE(s.fips, n.fips),
         latitude,
         longitude,
-        public_private,
+        low_grade,
+        high_grade,
+        public_private: COALESCE(s.public_private, n.public_private),
         congressional_district,
         cbsa,
         state_legislature_lower,
@@ -106,6 +108,8 @@ SELECT
         .regexp_replace(' prep ', ' preparatory ')
         .regexp_replace('\s{2,}', ' ', 'g')
         .trim(),
+    low_grade,
+    high_grade,
     public_private,
     nces_address: address,
     address: address
