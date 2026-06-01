@@ -56,9 +56,8 @@ At the K-12 level, individual schools are connected to their district (via LEA/N
   - [FTS Extension](https://duckdb.org/docs/stable/core_extensions/full_text_search) for similarity matching.
   - [Spatial Extension](https://duckdb.org/docs/stable/core_extensions/spatial/overview) for handling shapefiles from the US Census Bureau.
   - [Excel Extension](https://duckdb.org/docs/stable/core_extensions/excel) for loading `.xlsx` data files.
-- R
 - Python
-- [Make](https://www.gnu.org/software/make/) for automation and ensuring the results are up-to-date with the code.
+- [Just](https://github.com/casey/just) for automation and ensuring the results are up-to-date with the code.
 
 ## Related Projects
 
