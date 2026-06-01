@@ -17,44 +17,38 @@ General information that can be easily joined from the IPEDS directory informati
 
 ### Higher Education
 
-- [X] [IPEDS](https://nces.ed.gov/ipeds/)
-- [X] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
-- [X] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) - We have coordinates from
-  IPEDS which can be spatially joined to geometries, as well as the city,
-  county, ZIP, and state which can be joined directly.
-- [X] [NSC](https://nscresearchcenter.org/workingwithourdata/)
-- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations) - The
-  data here is covered by IPEDS already, so this isn't needed.
+- [x] [IPEDS](https://nces.ed.gov/ipeds/)
+- [x] [CEEB](https://satsuite.collegeboard.org/media/pdf/sat-score-sends-code-list.pdf)
+- [x] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) - We have coordinates from
+      IPEDS which can be spatially joined to geometries, as well as the city,
+      county, ZIP, and state which can be joined directly.
+- [x] [NSC](https://nscresearchcenter.org/workingwithourdata/)
 
 ### K-12 Education
 
-- [ ] [CEEB](https://satsuite.collegeboard.org/k12-educators/tools-resources/k12-school-code-search)
-- [ ] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
-- [ ] state-level identification systems
-  - namely Michigan and Ohio at first.
-- [ ] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations)
+- [x] [CEEB](https://satsuite.collegeboard.org/k12-educators/tools-resources/k12-school-code-search)
+- [x] [US Census Bureau Geospatial data](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html)
+- [x] State-level school IDs — provided by NCES EDGE data via the `state_school_id` field
+- [x] [NCES](https://nces.ed.gov/programs/edge/Geographic/SchoolLocations)
 
-At the K-12 level, I would like to be able to also connect individuals schools to their district in addition to ZIP, county, and state.
+At the K-12 level, individual schools are connected to their district (via LEA/NCES district code) in addition to ZIP, county, and state.
 
 ### Data Collection
 
-- [X] IPEDS HD table 2009 to 2024 (present)
-- [X] US Census Geographies
-  - [X] School District
-  - [X] ZCTA
-  - [X] County
-  - [X] State
-- [X] CEEB
-  - [X] Higher Education Institutions
-  - [X] US High Schools
-- [X] National Student Clearinghouse (NSC)
-- [X] NCES (EDGE)
-  - [X] Higher Education Institutions
-  - [X] US High Schools
-- [ ] State-Level ID Systems
-  - [ ] Indiana
-  - [ ] Michigan
-  - [ ] Ohio
+- [x] IPEDS HD table 2009 to 2024 (present)
+- [x] US Census Geographies
+  - [x] School District
+  - [x] ZCTA
+  - [x] County
+  - [x] State
+- [x] CEEB
+  - [x] Higher Education Institutions
+  - [x] US High Schools
+- [x] National Student Clearinghouse (NSC)
+- [x] NCES (EDGE)
+  - [x] Higher Education Institutions
+  - [x] US High Schools
+- [x] State-Level School IDs (via NCES EDGE `state_school_id`)
 
 ## Tools & Software
 

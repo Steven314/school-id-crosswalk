@@ -7,3 +7,4 @@ clean-data/
 
 *.duckdb
 *.wal
+*.csv
