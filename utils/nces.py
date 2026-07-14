@@ -254,8 +254,7 @@ class NeoNCES:
         public_df = pd.concat(public_tables)  # type: ignore # noqa: F841
         private_df = pd.concat(private_tables)  # type: ignore # noqa: F841
 
-        self.data = self.duck.duck.sql(
-            """
+        self.data = self.duck.duck.sql("""
             with public as (
                 select 
                     nces: "NCES School ID",
@@ -271,7 +270,8 @@ class NeoNCES:
                     address: "Street Address",
                     city: "City",
                     state_abbr: "State",
-                    zip: "ZIP"
+                    zip: "ZIP",
+                    type: "Type"
                 from public_df
             ),
             private as (
@@ -294,8 +294,7 @@ class NeoNCES:
             union all by name 
             from private 
             order by nces
-            """
-        ).pl()
+            """).pl()
 
     def append_to_duckdb(self):
         data = self.data  # type: ignore # noqa: F841
