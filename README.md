@@ -1,5 +1,10 @@
 # School ID Crosswalk
 
+> [!IMPORTANT]  
+> This project is being dropped in favor of [Steven314/k12-id-crosswalk](https://github.com/Steven314/k12-id-crosswalk).
+> It offers a much faster, simpler, and lighter way to get the essentially the same crosswalk.
+> I haven't compared the results for exact consistency, but much of the matching code is the same, so results should be very similar.
+
 When relating educational data from different sources, you often don't have a common identifier.
 This makes connecting data difficult.
 
